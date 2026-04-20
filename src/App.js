@@ -1,207 +1,323 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./App.css";
+import AddCartao from "./AddCartao";
+import RemoverCartao from "./RemoverCartao";
 
 function App() {
   const [dados, setDados] = useState([]);
+  const [cartoes, setCartoes] = useState([]);
+  const [cartaoAtivo, setCartaoAtivo] = useState(null);
+
+  const [mostrarCartao, setMostrarCartao] = useState(false);
+  const [mostrarRemover, setMostrarRemover] = useState(false);
+  const [mostrarForm, setMostrarForm] = useState(false);
+
   const [receitas, setReceitas] = useState(0);
   const [despesas, setDespesas] = useState(0);
   const [valorTotal, setValorTotal] = useState(0);
+
   const [busca, setBusca] = useState("");
 
-  // 🔥 controle do form
-  const [mostrarForm, setMostrarForm] = useState(false);
-  const [tipo, setTipo] = useState("");
+  // FORM
+  const [data, setData] = useState("");
+  const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
-  const [status, setStatus] = useState(1);
+  const [categoria, setCategoria] = useState("");
+  const [status, setStatus] = useState("receita");
+  const [cartoesId, setCartoesId] = useState("");
 
-  // 🔥 carregar dados da API
-  async function carregarDados() {
+  // 🔥 carregar lançamentos
+  const carregarDados = useCallback(async () => {
     try {
-      const response = await fetch("http://localhost:3001/api/financeiro");
+      let url = "http://localhost:3001/api/lancamentos";
+
+      if (cartaoAtivo) {
+        url += `?cartoes=${cartaoAtivo}`;
+      }
+
+      const response = await fetch(url);
       const data = await response.json();
 
-      setDados(data.dados);
-      setReceitas(data.receitas);
-      setDespesas(data.despesas);
-      setValorTotal(data.valor_total);
+      setDados(data.dados || []);
+      setReceitas(data.receitas || 0);
+      setDespesas(data.despesas || 0);
+      setValorTotal(data.valor_total || 0);
+
     } catch (error) {
-      console.error("Erro ao buscar dados:", error);
+      console.error(error);
     }
+  }, [cartaoAtivo]);
+
+  // 🔥 carregar cartões
+  const carregarCartoes = useCallback(async () => {
+    try {
+      const res = await fetch("http://localhost:3001/api/cartoes");
+      const data = await res.json();
+
+      setCartoes(data || []);
+
+      if (data.length > 0) {
+        const existe = data.find(c => c.id === cartaoAtivo);
+
+        if (!existe) {
+          setCartaoAtivo(data[0].id);
+        }
+      }
+
+    } catch (error) {
+      console.error(error);
+    }
+  }, [cartaoAtivo]);
+
+  function formatarData(dataISO) {
+    if (!dataISO) return "";
+    return new Date(dataISO).toLocaleDateString("pt-BR");
   }
 
   useEffect(() => {
-    carregarDados();
-  }, []);
+    carregarCartoes();
+  }, [carregarCartoes]);
 
-  // 🔥 cadastrar
+  useEffect(() => {
+    if (cartaoAtivo) {
+      carregarDados();
+    } 
+  }, [cartaoAtivo, carregarDados]);
+
+  // 🔥 cadastrar lançamento
   async function cadastrar(e) {
     e.preventDefault();
 
+    if (!cartoesId) {
+      alert("Selecione um cartão!");
+      return;
+    }
+
     try {
-      await fetch("http://localhost:3001/api/financeiro", {
+      const res = await fetch("http://localhost:3001/api/lancamentos", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          tipo,
+          data,
+          descricao,
           valor,
+          categoria,
           status,
+          cartoesId: Number(cartoesId),
         }),
       });
 
-      // limpa form
-      setTipo("");
-      setValor("");
-      setStatus(1);
+      if (!res.ok) {
+        const erro = await res.json();
+        alert(erro.error);
+        return;
+      }
 
-      // esconde form
+      // reset form
+      setDescricao("");
+      setValor("");
+      setCategoria("");
+      setStatus("receita");
+      setCartoesId("");
       setMostrarForm(false);
 
-      // recarrega dados
       carregarDados();
-    } catch (error) {
-      console.error("Erro ao cadastrar:", error);
+
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao cadastrar");
     }
   }
 
   // 🔥 deletar
   async function deletar(id) {
-    if (!window.confirm("Deseja excluir?")) return;
+    if (!window.confirm("Excluir?")) return;
 
-    try {
-      await fetch(`http://localhost:3001/api/financeiro/${id}`, {
-        method: "DELETE",
-      });
+    await fetch(`http://localhost:3001/api/lancamentos/${id}`, {
+      method: "DELETE",
+    });
 
-      carregarDados();
-    } catch (error) {
-      console.error("Erro ao deletar:", error);
-    }
+    carregarDados();
   }
 
-  // 🔥 filtro
-  const dadosFiltrados = dados.filter(item =>
-    item.tipo.toLowerCase().includes(busca.toLowerCase())
+  // 🔥 filtro busca (seguro)
+  const dadosFiltrados = (dados || []).filter((item) =>
+    item.descricao?.toLowerCase().includes(busca.toLowerCase())
   );
 
   return (
-    <div className="container mt-4">
-      
-      <h1>Gerenciador de Finanças</h1>
-      <hr />
+    <div>
 
-      {/* CARDS */}
-      <div className="dvCaixas">
-        <div>
-          <strong>Saldo total</strong><br />
-          {valorTotal} R$
-        </div>
+      {/* HEADER */}
+      <header className="header">
+        <nav>
+          <ul>
+            {cartoes.map((c) => (
+              <li key={c.id}>
+                <button
+                  className={cartaoAtivo === c.id ? "active" : ""}
+                  onClick={() => setCartaoAtivo(c.id)}
+                >
+                  {c.nome}
+                </button>
+              </li>
+            ))}
 
-        <div>
-          <strong>Receita</strong><br />
-          {receitas} R$
-        </div>
+            <li>
+              <button onClick={() => setMostrarCartao(true)}>
+                + Cartão
+              </button>
+            </li>
 
-        <div>
-          <strong>Despesas</strong><br />
-          {despesas} R$
-        </div>
-      </div>
+            <li>
+              <button onClick={() => setMostrarRemover(true)}>
+                - Cartão
+              </button>
+            </li>
+          </ul>
+        </nav>
+      </header>
 
-      {/* SEARCH + BOTÃO */}
-      <div className="dvSearch">
-        <input
-          type="text"
-          className="form-control"
-          placeholder="Pesquisar..."
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-        />
+      <div className="container mt-5">
 
-        <button
-          className="btn btn-primary"
-          onClick={() => setMostrarForm(!mostrarForm)}
-        >
-          {mostrarForm ? "Fechar" : "Adicionar"}
-        </button>
-      </div>
-
-      {/* 🔥 FORM */}
-      {mostrarForm && (
-        <form onSubmit={cadastrar} className="card p-3 mb-3">
-          
-          <div className="mb-3">
-            <label className="form-label">Tipo</label>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Ex: Salário, Mercado..."
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
-              required
-            />
+        {/* CARDS */}
+        <div className="dvCaixas">
+          <div className="saldo">
+            <strong>Saldo</strong><br />
+            {cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$"} {valorTotal}
           </div>
 
-          <div className="mb-3">
-            <label className="form-label">Valor</label>
+          <div className="receita">
+            <strong>Receitas</strong><br />
+            {cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$"} {receitas}
+          </div>
+
+          <div className="despesa">
+            <strong>Despesas</strong><br />
+            {cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$"} {despesas}
+          </div>
+        </div>
+
+        {/* SEARCH */}
+        <div className="dvSearch">
+          <input
+            type="text"
+            className="form-control"
+            placeholder="Buscar..."
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+          />
+
+          <button
+            className="btn btn-primary"
+            onClick={() => setMostrarForm(!mostrarForm)}
+          >
+            {mostrarForm ? "Fechar" : "Adicionar"}
+          </button>
+        </div>
+
+        {/* FORM */}
+        {mostrarForm && (
+          <form onSubmit={cadastrar} className="card p-3 mb-3">
+
+            <input
+              type="date"
+              className="form-control mb-2"
+              value={data}
+              onChange={(e) => setData(e.target.value)}
+              required
+            />
+
+            <select
+              className="form-control mb-2"
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value)}
+              required
+            >
+              <option value="">Categoria</option>
+              <option>Salário</option>
+              <option>Moradia</option>
+              <option>Mercado</option>
+              <option>Restaurante</option>
+              <option>Assinaturas</option>
+              <option>Passeio</option>
+              <option>Saúde</option>
+              <option>Transporte</option>
+              <option>Compras</option>
+            </select>
+
+            <input
+              type="text"
+              placeholder="Descrição"
+              className="form-control mb-2"
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
+              required
+            />
+
             <input
               type="number"
+              placeholder="Valor"
               step="0.01"
-              className="form-control"
+              className="form-control mb-2"
               value={valor}
               onChange={(e) => setValor(e.target.value)}
               required
             />
-          </div>
 
-          <div className="mb-3">
-            <label className="form-label">Status</label>
             <select
-              className="form-control"
-              value={status}
-              onChange={(e) => setStatus(Number(e.target.value))}
+              className="form-control mb-2"
+              value={cartoesId}
+              onChange={(e) => setCartoesId(e.target.value)}
+              required
             >
-              <option value={1}>Receita</option>
-              <option value={0}>Despesa</option>
+              <option value="">Cartão</option>
+              {cartoes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
+              ))}
             </select>
-          </div>
 
-          <button type="submit" className="btn-cadastrar">
-            Cadastrar
-          </button>
+            <select
+              className="form-control mb-2"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              <option value="receita">Receita</option>
+              <option value="despesa">Despesa</option>
+            </select>
 
-          <button
-            type="button"
-            className="btn-cancelar"
-            onClick={() => setMostrarForm(false)}
-          >
-            Cancelar
-          </button>
-        </form>
-      )}
+            <button className="btn btn-success">Cadastrar</button>
+          </form>
+        )}
 
-      {/* TABELA */}
-      <table className="dvTabela">
-        <thead className="table-light">
-          <tr>
-            <th>Tipo</th>
-            <th>Valor</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </thead>
+        {/* TABELA */}
+        <table className="dvTabela">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Descrição</th>
+              <th>Categoria</th>
+              <th>Valor</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
 
-        <tbody>
-          {dadosFiltrados.length > 0 ? (
-            dadosFiltrados.map((item) => (
+          <tbody>
+            {dadosFiltrados.map((item) => (
               <tr key={item.id}>
-                <td>{item.tipo}</td>
-                <td>{item.valor} R$</td>
+                <td>{formatarData(item.data)}</td>
+                <td>{item.descricao}</td>
+                <td>{item.categoria}</td>
+                <td>{cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$"} {item.valor}</td>
 
                 <td>
-                  {item.status === 1 ? (
+                  {item.status === "receita" ? (
                     <span className="badge bg-success">Receita</span>
                   ) : (
                     <span className="badge bg-danger">Despesa</span>
@@ -209,10 +325,6 @@ function App() {
                 </td>
 
                 <td>
-                  <button className="btn btn-warning btn-sm me-2">
-                    Editar
-                  </button>
-
                   <button
                     className="btn btn-danger btn-sm"
                     onClick={() => deletar(item.id)}
@@ -221,16 +333,27 @@ function App() {
                   </button>
                 </td>
               </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="4" className="text-center">
-                Nenhum lançamento encontrado
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+            ))}
+          </tbody>
+        </table>
+
+      </div>
+
+      {/* MODAIS */}
+      {mostrarCartao && (
+        <AddCartao
+          onClose={() => setMostrarCartao(false)}
+          onCreated={carregarCartoes}
+        />
+      )}
+
+      {mostrarRemover && (
+        <RemoverCartao
+          cartoes={cartoes}
+          onClose={() => setMostrarRemover(false)}
+          onDeleted={carregarCartoes}
+        />
+      )}
     </div>
   );
 }
