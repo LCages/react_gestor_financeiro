@@ -159,6 +159,42 @@ function App() {
     if (!item.data) return false;
     return new Date(item.data).getFullYear() === anoSelecionado;
   });
+
+  const categoriasFixas = [
+    'Moradia',
+    'Mercado',
+    'Restaurante',
+    'Transporte',
+    'Saúde',
+    'Assinaturas',
+    'Compras',
+    'Passeio',
+    'Salário',
+    'Outros'
+  ];
+
+  const resumoCategorias = {};
+
+  // 🔥 inicia todas com 0
+  categoriasFixas.forEach(cat => {
+    resumoCategorias[cat] = 0;
+  });
+
+  // 🔥 soma os dados reais
+  (dados || []).forEach((item) => {
+    if (!item.categoria) return;
+
+    const valor = Number(item.valor) || 0;
+
+    if (item.status === "receita") {
+      resumoCategorias[item.categoria] += valor;
+    } else {
+      resumoCategorias[item.categoria] -= valor;
+    }
+
+    Object.entries(resumoCategorias)
+      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+  });
   
   return (
     <div>
@@ -234,16 +270,16 @@ function App() {
               {/* BOTÕES */}
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
 
-                {!mostrarCambio && (
+                  <button onClick={() => setMostrarCambio(!mostrarCambio)}>
+                    {mostrarCambio ? "Relatório Mensal" : "Taxa de Câmbio"}
+                  </button>
+
+                  {!mostrarCambio && (
                   <div>
                     <button onClick={() => setAnoSelecionado(2026)}>2026</button>
                   </div>
                 )}
 
-                  <button onClick={() => setMostrarCambio(!mostrarCambio)}>
-                    {mostrarCambio ? "Relatório Mensal" : "Taxa de Câmbio"}
-                  </button>
-                
               </div>
 
               {/* CONTEÚDO */}
@@ -255,15 +291,71 @@ function App() {
 
             </div>
 
-            {/* PARTE DE BAIXO */}
-            <div className="bottom">
-              
+          </div>
+        
+        </div>
 
-            </div>
 
+        <div className="main-tab-categorias">
+
+          <div className="box-categorias">
+
+            <table className="tabela-categorias">
+              <thead>
+                <tr>
+                  <th>Categoria</th>
+                  <th>Total</th>
+                  <th>Categoria</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {Object.entries(resumoCategorias)
+                  .reduce((acc, curr, i, arr) => {
+                    if (i % 2 === 0) {
+                      acc.push([curr, arr[i + 1]]);
+                    }
+                    return acc;
+                  }, [])
+                  .map((par, index) => (
+                    <tr key={index}>
+
+                      {/* COLUNA 1 */}
+                      <td>{par[0][0]}</td>
+                      <td style={{
+                        color: par[0][1] >= 0 ? "green" : "red",
+                        fontWeight: "bold"
+                      }}>
+                        {(cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$")} {Math.abs(par[0][1]).toFixed(2)}
+                      </td>
+
+                      {/* COLUNA 2 */}
+                      {par[1] ? (
+                        <>
+                          <td>{par[1][0]}</td>
+                          <td style={{
+                            color: par[1][1] >= 0 ? "green" : "red",
+                            fontWeight: "bold"
+                          }}>
+                            {(cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$")} {Math.abs(par[1][1]).toFixed(2)}
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td></td>
+                          <td></td>
+                        </>
+                      )}
+
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
           </div>
 
         </div>
+
 
         <div className="box-tabela-search">
           <div className="dvSearch">
@@ -310,6 +402,7 @@ function App() {
                     <option>Saúde</option>
                     <option>Transporte</option>
                     <option>Compras</option>
+                    <option>Outros</option>
                   </select>
 
                   <input
