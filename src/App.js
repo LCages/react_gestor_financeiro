@@ -3,6 +3,9 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "./App.css";
 import AddCartao from "./AddCartao";
 import RemoverCartao from "./RemoverCartao";
+import React from "react";
+import CambioChart from "./CambioChart";
+import FinanceChart from "./FinanceChart";
 
 function App() {
   const [dados, setDados] = useState([]);
@@ -26,6 +29,10 @@ function App() {
   const [categoria, setCategoria] = useState("");
   const [status, setStatus] = useState("receita");
   const [cartoesId, setCartoesId] = useState("");
+
+
+  const [mostrarCambio, setMostrarCambio] = useState(false);
+  const [anoSelecionado, setAnoSelecionado] = useState(2026);
 
   // 🔥 carregar lançamentos
   const carregarDados = useCallback(async () => {
@@ -148,6 +155,11 @@ function App() {
     item.descricao?.toLowerCase().includes(busca.toLowerCase())
   );
 
+  const dadosDoAno = dados.filter(item => {
+    if (!item.data) return false;
+    return new Date(item.data).getFullYear() === anoSelecionado;
+  });
+  
   return (
     <div>
 
@@ -181,180 +193,236 @@ function App() {
         </nav>
       </header>
 
-      <div className="container mt-5">
 
-        {/* CARDS */}
-        <div className="dvCaixas">
-          <div className="saldo">
-            <strong>Saldo</strong><br />
-            {cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$"} {valorTotal}
+
+      <div className="main-box">
+
+        <div className="layout">
+
+          {/* ESQUERDA (25%) */}
+          <div className="left">
+
+            <div className="box saldo">
+              <strong>Saldo</strong>
+              <span>
+                {cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$"} {valorTotal}
+              </span>
+            </div>
+
+            <div className="box receita">
+              <strong>Receitas</strong>
+              <span>
+                {cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$"} {receitas}
+              </span>
+            </div>
+
+            <div className="box despesa">
+              <strong>Despesas</strong>
+              <span>
+                {cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$"} {despesas}
+              </span>
+            </div>
+
           </div>
 
-          <div className="receita">
-            <strong>Receitas</strong><br />
-            {cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$"} {receitas}
-          </div>
+          {/* DIREITA (75%) */}
+          <div className="right">
 
-          <div className="despesa">
-            <strong>Despesas</strong><br />
-            {cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$"} {despesas}
-          </div>
-        </div>
+            {/* PARTE DE CIMA */}
+            <div className="top">
 
-        {/* SEARCH */}
-        <div className="dvSearch">
-          <input
-            type="text"
-            className="form-control"
-            placeholder="Buscar..."
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-          />
+              {/* BOTÕES */}
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
 
-          <button
-            className="btn btn-primary"
-            onClick={() => setMostrarForm(!mostrarForm)}
-          >
-            {mostrarForm ? "Fechar" : "Adicionar"}
-          </button>
-        </div>
+                {!mostrarCambio && (
+                  <div>
+                    <button onClick={() => setAnoSelecionado(2026)}>2026</button>
+                  </div>
+                )}
 
-        {/* FORM */}
-        {mostrarForm && (
-          <form onSubmit={cadastrar} className="card p-3 mb-3">
-
-            <input
-              type="date"
-              className="form-control mb-2"
-              value={data}
-              onChange={(e) => setData(e.target.value)}
-              required
-            />
-
-            <select
-              className="form-control mb-2"
-              value={categoria}
-              onChange={(e) => setCategoria(e.target.value)}
-              required
-            >
-              <option value="">Categoria</option>
-              <option>Salário</option>
-              <option>Moradia</option>
-              <option>Mercado</option>
-              <option>Restaurante</option>
-              <option>Assinaturas</option>
-              <option>Passeio</option>
-              <option>Saúde</option>
-              <option>Transporte</option>
-              <option>Compras</option>
-            </select>
-
-            <input
-              type="text"
-              placeholder="Descrição"
-              className="form-control mb-2"
-              value={descricao}
-              onChange={(e) => setDescricao(e.target.value)}
-              required
-            />
-
-            <input
-              type="number"
-              placeholder="Valor"
-              step="0.01"
-              className="form-control mb-2"
-              value={valor}
-              onChange={(e) => setValor(e.target.value)}
-              required
-            />
-
-            <select
-              className="form-control mb-2"
-              value={cartoesId}
-              onChange={(e) => setCartoesId(e.target.value)}
-              required
-            >
-              <option value="">Cartão</option>
-              {cartoes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nome}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="form-control mb-2"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              <option value="receita">Receita</option>
-              <option value="despesa">Despesa</option>
-            </select>
-
-            <button className="btn btn-success">Cadastrar</button>
-          </form>
-        )}
-
-        {/* TABELA */}
-        <table className="dvTabela">
-          <thead>
-            <tr>
-              <th>Data</th>
-              <th>Descrição</th>
-              <th>Categoria</th>
-              <th>Valor</th>
-              <th>Status</th>
-              <th></th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {dadosFiltrados.map((item) => (
-              <tr key={item.id}>
-                <td>{formatarData(item.data)}</td>
-                <td>{item.descricao}</td>
-                <td>{item.categoria}</td>
-                <td>{cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$"} {item.valor}</td>
-
-                <td>
-                  {item.status === "receita" ? (
-                    <span className="badge bg-success">Receita</span>
-                  ) : (
-                    <span className="badge bg-danger">Despesa</span>
-                  )}
-                </td>
-
-                <td>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => deletar(item.id)}
-                  >
-                    Excluir
+                  <button onClick={() => setMostrarCambio(!mostrarCambio)}>
+                    {mostrarCambio ? "Relatório Mensal" : "Taxa de Câmbio"}
                   </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                
+              </div>
 
+              {/* CONTEÚDO */}
+              {mostrarCambio ? (
+                <CambioChart />
+              ) : (
+                <FinanceChart dados={dadosDoAno} />
+              )}
+
+            </div>
+
+            {/* PARTE DE BAIXO */}
+            <div className="bottom">
+              
+
+            </div>
+
+          </div>
+
+        </div>
+
+        <div className="box-tabela-search">
+          <div className="dvSearch">
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Buscar..."
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                />
+
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setMostrarForm(!mostrarForm)}
+                >
+                  {mostrarForm ? "Fechar" : "Adicionar"}
+                </button>
+              </div>
+
+              {mostrarForm && (
+                <form onSubmit={cadastrar} className="card p-3 mt-3">
+
+                  <input
+                    type="date"
+                    className="form-control mb-2"
+                    value={data}
+                    onChange={(e) => setData(e.target.value)}
+                    required
+                  />
+
+                  <select
+                    className="form-control mb-2"
+                    value={categoria}
+                    onChange={(e) => setCategoria(e.target.value)}
+                    required
+                  >
+                    <option value="">Categoria</option>
+                    <option>Salário</option>
+                    <option>Moradia</option>
+                    <option>Mercado</option>
+                    <option>Restaurante</option>
+                    <option>Assinaturas</option>
+                    <option>Passeio</option>
+                    <option>Saúde</option>
+                    <option>Transporte</option>
+                    <option>Compras</option>
+                  </select>
+
+                  <input
+                    type="text"
+                    placeholder="Descrição"
+                    className="form-control mb-2"
+                    value={descricao}
+                    onChange={(e) => setDescricao(e.target.value)}
+                    required
+                  />
+
+                  <input
+                    type="number"
+                    placeholder="Valor"
+                    step="0.01"
+                    className="form-control mb-2"
+                    value={valor}
+                    onChange={(e) => setValor(e.target.value)}
+                    required
+                  />
+
+                  <select
+                    className="form-control mb-2"
+                    value={cartoesId}
+                    onChange={(e) => setCartoesId(e.target.value)}
+                    required
+                  >
+                    <option value="">Cartão</option>
+                    {cartoes.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.nome}
+                      </option>
+                    ))}
+                  </select>
+
+                  <select
+                    className="form-control mb-2"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                  >
+                    <option value="receita">Receita</option>
+                    <option value="despesa">Despesa</option>
+                  </select>
+
+                  <button className="btn btn-success">Cadastrar</button>
+                </form>
+              )}
+
+              <table className="dvTabela">
+                <thead>
+                  <tr>
+                    <th>Data</th>
+                    <th>Descrição</th>
+                    <th>Categoria</th>
+                    <th>Valor</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {dadosFiltrados.map((item) => (
+                    <tr key={item.id}>
+                      <td>{formatarData(item.data)}</td>
+                      <td>{item.descricao}</td>
+                      <td>{item.categoria}</td>
+                      <td>
+                        {cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$"} {item.valor}
+                      </td>
+
+                      <td>
+                        {item.status === "receita" ? (
+                          <span className="badge bg-success">Receita</span>
+                        ) : (
+                          <span className="badge bg-danger">Despesa</span>
+                        )}
+                      </td>
+
+                      <td>
+                        <button
+                          className="btn btn-danger btn-sm"
+                          onClick={() => deletar(item.id)}
+                        >
+                          Excluir
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+        </div>
       </div>
 
-      {/* MODAIS */}
-      {mostrarCartao && (
-        <AddCartao
-          onClose={() => setMostrarCartao(false)}
-          onCreated={carregarCartoes}
-        />
-      )}
+    {mostrarCartao && (
+      <AddCartao
+        onClose={() => setMostrarCartao(false)}
+        onCreated={carregarCartoes}
+      />
+    )}
 
-      {mostrarRemover && (
-        <RemoverCartao
-          cartoes={cartoes}
-          onClose={() => setMostrarRemover(false)}
-          onDeleted={carregarCartoes}
-        />
-      )}
+    {mostrarRemover && (
+      <RemoverCartao
+        onClose={() => setMostrarRemover(false)}
+        cartoes={cartoes}
+        onDeleted={() => {
+          carregarCartoes();
+          carregarDados();
+        }}
+      />
+    )}
+
     </div>
+
   );
 }
 
