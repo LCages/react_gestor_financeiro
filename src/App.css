@@ -37,7 +37,7 @@
 .header button.active {
   background: rgba(255,255,255,0.7);
   border: 1px solid rgba(0,0,0,0.15);
-  transition:1s
+  transition:2s;
 }
 
 

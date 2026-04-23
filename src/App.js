@@ -197,7 +197,23 @@ function App() {
 
     Object.entries(resumoCategorias)
       .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
-  });
+    });
+
+  const anosDisponiveis = [
+    ...new Set(
+      dados
+        .filter(item => item.data)
+        .map(item => new Date(item.data).getFullYear())
+    )
+  ].sort((a, b) => b - a); // ordem decrescente
+
+  useEffect(() => {
+  if (anosDisponiveis.length === 0) return;
+
+  if (!anoSelecionado || !anosDisponiveis.includes(anoSelecionado)) {
+    setAnoSelecionado(anosDisponiveis[0]);
+  }
+}, [anosDisponiveis, anoSelecionado]);
   
   return (
     <div>
@@ -273,13 +289,24 @@ function App() {
               {/* BOTÕES */}
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
 
-                  <button onClick={() => setMostrarCambio(!mostrarCambio)}>
-                    {mostrarCambio ? "Relatório Mensal" : "Taxa de Câmbio"}
-                  </button>
+                <button onClick={() => setMostrarCambio(!mostrarCambio)}>
+                  {mostrarCambio ? "Relatório Mensal" : "Taxa de Câmbio"}
+                </button>
 
-                  {!mostrarCambio && (
-                  <div>
-                    <button onClick={() => setAnoSelecionado(2026)}>2026</button>
+                {!mostrarCambio && (
+                  <div style={{ display: "flex", gap: "5px" }}>
+                    {anosDisponiveis.map((ano) => (
+                      <button
+                        key={ano}
+                        onClick={() => setAnoSelecionado(ano)}
+                        style={{
+                          background: anoSelecionado === ano ? "#4caf50" : "#1e1e2f",
+                          color: "white"
+                        }}
+                      >
+                        {ano}
+                      </button>
+                    ))}
                   </div>
                 )}
 
