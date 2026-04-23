@@ -492,30 +492,47 @@ form select:focus {
   margin-top: 20px;
 }
 
-.box-categorias {
-  background: #1e1e2f;
-  padding: 20px;
-  border-radius: 12px;
-  color: white;
-}
-
 .tabela-categorias {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 10px;
+
+  background: rgb(255, 255, 255);
+  backdrop-filter: blur(12px);
+
+  border-radius: 16px;
+  overflow: hidden;
+
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
 }
 
+
 .tabela-categorias th {
-  text-align: left;
-  padding: 10px;
-  border-bottom: 1px solid #444;
+  background: #f4f6f9;
+  color: #555;
+  font-weight: 600;
+}
+
+/* CÉLULAS */
+.tabela-categorias th,
+.tabela-categorias td {
+  padding: 14px;
 }
 
 .tabela-categorias td {
-  padding: 10px;
-  border-bottom: 1px solid #333;
+  color: #2c3e50;
 }
 
-.tabela-categorias tr:hover {
-  background: #2a2a40;
+/* LINHAS */
+.tabela-categorias tbody tr {
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+  transition: 0.2s;
+}
+
+
+.tabela-categorias tbody tr:nth-child(even) {
+  background: rgba(249, 251, 253, 0.2);
+}
+
+.tabela-categorias tbody tr:nth-child(odd) {
+  background: rgba(249, 251, 253, 0.1);
 }
