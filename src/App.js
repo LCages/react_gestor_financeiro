@@ -34,6 +34,9 @@ function App() {
   const [mostrarCambio, setMostrarCambio] = useState(false);
   const [anoSelecionado, setAnoSelecionado] = useState(2026);
 
+  const [selecionados, setSelecionados] = useState([]);
+  const [modoSelecao, setModoSelecao] = useState(false);
+
   // 🔥 carregar lançamentos
   const carregarDados = useCallback(async () => {
     try {
@@ -367,12 +370,46 @@ function App() {
                   onChange={(e) => setBusca(e.target.value)}
                 />
 
-                <button
-                  className="btn btn-primary"
-                  onClick={() => setMostrarForm(!mostrarForm)}
-                >
-                  {mostrarForm ? "Fechar" : "Adicionar"}
-                </button>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => setMostrarForm(!mostrarForm)}
+                  >
+                    {mostrarForm ? "Fechar" : "Adicionar"}
+                  </button>
+
+                  <button
+                    className={`btn ${modoSelecao ? "btn-warning" : "btn-secondary"}`}
+                    onClick={() => {
+                      setModoSelecao(!modoSelecao);
+                      setSelecionados([]);
+                    }}
+                  >
+                    {modoSelecao ? "Cancelar seleção" : "Selecionar"}
+                  </button>
+
+                  <button
+                    className="btn btn-danger"
+                    disabled={selecionados.length === 0}
+                    onClick={async () => {
+                      if (!window.confirm("Excluir selecionados?")) return;
+
+                      await Promise.all(
+                        selecionados.map(id =>
+                          fetch(`http://localhost:3001/api/lancamentos/${id}`, {
+                            method: "DELETE"
+                          })
+                        )
+                      );
+
+                      setSelecionados([]);
+                      setModoSelecao(false);
+                      carregarDados();
+                    }}
+                  >
+                    Excluir
+                  </button>
+                </div>
               </div>
 
               {mostrarForm && (
@@ -454,6 +491,7 @@ function App() {
               <table className="dvTabela">
                 <thead>
                   <tr>
+                    {modoSelecao && <th></th>}
                     <th>Data</th>
                     <th>Descrição</th>
                     <th>Categoria</th>
@@ -465,7 +503,26 @@ function App() {
 
                 <tbody>
                   {dadosFiltrados.map((item) => (
-                    <tr key={item.id}>
+                    <tr key={item.id} style={{
+                      backgroundColor: selecionados.includes(item.id)
+                        ? "#ffe5e5"
+                        : "transparent"
+                    }}>
+                      {modoSelecao && (
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selecionados.includes(item.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelecionados([...selecionados, item.id]);
+                              } else {
+                                setSelecionados(selecionados.filter(id => id !== item.id));
+                              }
+                            }}
+                          />
+                        </td>
+                      )}
                       <td>{formatarData(item.data)}</td>
                       <td>{item.descricao}</td>
                       <td>{item.categoria}</td>

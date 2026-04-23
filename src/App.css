@@ -183,7 +183,7 @@ h1 {
 }
 
 .dvSearch input {
-  width: 320px;
+  width: 50%;
   border-radius: 10px;
   border: 1px solid #ddd;
   padding: 10px;
