@@ -14,7 +14,7 @@
   border-radius: 50px;
   border: 1px solid rgba(0,0,0,0.08);
 
-  box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+  box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
 }
 
 .header ul {
@@ -492,6 +492,16 @@ form select:focus {
   margin-top: 20px;
 }
 
+.box-categorias {
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(15px);
+
+  border-radius: 16px;
+  padding: 15px;
+
+  box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+}
+
 .tabela-categorias {
   width: 100%;
   border-collapse: collapse;
@@ -507,7 +517,7 @@ form select:focus {
 
 
 .tabela-categorias th {
-  background: #f4f6f9;
+  background: #eaecee;
   color: #555;
   font-weight: 600;
 }
@@ -535,4 +545,59 @@ form select:focus {
 
 .tabela-categorias tbody tr:nth-child(odd) {
   background: rgba(249, 251, 253, 0.1);
+}
+
+.button-mm-yy {
+  width: fit-content;
+  display: flex;
+  gap: 8px;
+  padding: 6px 8px;
+
+}
+
+/* SELECT BASE */
+.button-mm-yy select {
+  width: 100px;
+  appearance: none;
+  outline: none;
+  background: #252536;
+  color: #ffffff;
+  padding: 8px 30px 8px 12px;
+  border-radius: 50px;
+  border: 1px solid rgba(0,0,0,0.08);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  margin-bottom: 10px;
+}
+
+/* HOVER */
+.button-mm-yy select:hover {
+  background: #3a3a55;
+}
+
+/* FOCUS */
+.button-mm-yy select:focus {
+  box-shadow: 0 0 0 2px #4caf50;
+}
+
+/* SETINHA CUSTOM */
+.button-mm-yy select {
+  background-image: url("data:image/svg+xml;utf8,<svg fill='white' height='20' viewBox='0 0 20 20' width='20' xmlns='http://www.w3.org/2000/svg'><path d='M5 7l5 5 5-5H5z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 16px;
+}
+
+/* RESPONSIVO */
+@media (max-width: 600px) {
+  .button-mm-yy {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .button-mm-yy select {
+    width: 100%;
+  }
 }

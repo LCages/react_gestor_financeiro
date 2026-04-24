@@ -33,6 +33,7 @@ function App() {
 
   const [mostrarCambio, setMostrarCambio] = useState(false);
   const [anoSelecionado, setAnoSelecionado] = useState(2026);
+  const [mesSelecionado, setMesSelecionado] = useState(new Date().getMonth() + 1);
 
   const [selecionados, setSelecionados] = useState([]);
   const [modoSelecao, setModoSelecao] = useState(false);
@@ -183,8 +184,19 @@ function App() {
     resumoCategorias[cat] = 0;
   });
 
+  const dadosFiltradosPeriodo = dados.filter(item => {
+  if (!item.data) return false;
+
+  const d = new Date(item.data);
+
+  return (
+    d.getFullYear() === anoSelecionado &&
+    d.getMonth() + 1 === mesSelecionado
+  );
+});
+
   // 🔥 soma os dados reais
-  (dados || []).forEach((item) => {
+  dadosFiltradosPeriodo.forEach((item) => {
     if (!item.categoria) return;
 
     const valor = Number(item.valor) || 0;
@@ -208,12 +220,18 @@ function App() {
   ].sort((a, b) => b - a); // ordem decrescente
 
   useEffect(() => {
-  if (anosDisponiveis.length === 0) return;
+    if (anosDisponiveis.length === 0) return;
 
-  if (!anoSelecionado || !anosDisponiveis.includes(anoSelecionado)) {
-    setAnoSelecionado(anosDisponiveis[0]);
-  }
-}, [anosDisponiveis, anoSelecionado]);
+    if (!anoSelecionado || !anosDisponiveis.includes(anoSelecionado)) {
+      setAnoSelecionado(anosDisponiveis[0]);
+    }
+  }, [anosDisponiveis, anoSelecionado]);
+
+  useEffect(() => {
+    const hoje = new Date();
+    setAnoSelecionado(hoje.getFullYear());
+    setMesSelecionado(hoje.getMonth() + 1);
+  }, []);
   
   return (
     <div>
@@ -329,6 +347,41 @@ function App() {
         <div className="main-tab-categorias">
 
           <div className="box-categorias">
+
+            <div className="button-mm-yy">
+
+              {/* ANO */}
+              <select
+                value={anoSelecionado}
+                onChange={(e) => setAnoSelecionado(Number(e.target.value))}
+              >
+                {anosDisponiveis.map((ano) => (
+                  <option key={ano} value={ano}>
+                    {ano}
+                  </option>
+                ))}
+              </select>
+
+              {/* MÊS */}
+              <select
+                value={mesSelecionado}
+                onChange={(e) => setMesSelecionado(Number(e.target.value))}
+              >
+                <option value={1}>Janeiro</option>
+                <option value={2}>Fevereiro</option>
+                <option value={3}>Março</option>
+                <option value={4}>Abril</option>
+                <option value={5}>Maio</option>
+                <option value={6}>Junho</option>
+                <option value={7}>Julho</option>
+                <option value={8}>Agosto</option>
+                <option value={9}>Setembro</option>
+                <option value={10}>Outubro</option>
+                <option value={11}>Novembro</option>
+                <option value={12}>Dezembro</option>
+              </select>
+
+            </div>
 
             <table className="tabela-categorias">
               <thead>
