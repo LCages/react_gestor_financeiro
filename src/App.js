@@ -60,10 +60,7 @@ function App() {
 
   const cartaoSelecionado = cartoes.find(c => c.id === cartaoAtivo);
 
-  const simboloMoeda =
-    cartaoAtivo === "todos"
-      ? normalizarMoeda(moedaGlobal)
-      : normalizarMoeda(cartaoSelecionado?.moeda || "BRL");
+  const simboloMoeda = moedaGlobal;
 
   // 🔥 carregar lançamentos
   const carregarDados = useCallback(async () => {
@@ -182,7 +179,6 @@ function App() {
   }
 
   const dadosConvertidos = useMemo(() => {
-    if (cartaoAtivo !== "todos") return dados;
 
     if (!taxas || Object.keys(taxas).length === 0) return dados;
 
@@ -230,16 +226,26 @@ function App() {
   const receitasConvertidas = dadosFiltradosPeriodo
     .filter(i => i.status === "receita")
     .reduce((acc, i) =>
-      acc + Number(cartaoAtivo === "todos" ? i.valorConvertido : i.valor), 0
+      acc + Number(i.valorConvertido), 0
     );
 
   const despesasConvertidas = dadosFiltradosPeriodo
     .filter(i => i.status === "despesa")
     .reduce((acc, i) =>
-      acc + Number(cartaoAtivo === "todos" ? i.valorConvertido : i.valor), 0
+      acc + Number(i.valorConvertido), 0
     );
 
   const totalConvertido = receitasConvertidas - despesasConvertidas;
+
+  const saldoTotal = dadosConvertidos.reduce((acc, item) => {
+    const valor = Number(item.valorConvertido) || 0;
+
+    if (item.status === "receita") {
+      return acc + valor;
+    } else {
+      return acc - valor;
+    }
+  }, 0);
 
   // 🔥 filtro busca (seguro)
   const dadosFiltrados = (dadosConvertidos || []).filter((item) =>
@@ -275,11 +281,7 @@ function App() {
   dadosFiltradosPeriodo.forEach((item) => {
     if (!item.categoria) return;
 
-    const valor = Number(
-      cartaoAtivo === "todos"
-        ? item.valorConvertido
-        : item.valor
-    ) || 0;
+    const valor = Number(item.valorConvertido) || 0;
 
     if (item.status === "receita") {
       resumoCategorias[item.categoria] += valor;
@@ -357,21 +359,42 @@ function App() {
   carregarTaxas();
 }, []);
 
-  useEffect(() => {
-    if (cartaoAtivo !== "todos") {
-      setMoedaGlobal("BRL");
-    }
-  }, [cartaoAtivo]);
-
   
   return (
     <div>
 
       {/* HEADER */}
       <header className="header">
-        <nav>
+
+        {/* 🔥 ESQUERDA (moeda) */}
+        <div className="header-left">
+          <div className="currency-buttons">
+            <button
+              className={moedaGlobal === "BRL" ? "active" : ""}
+              onClick={() => setMoedaGlobal("BRL")}
+            >
+              Real
+            </button>
+
+            <button
+              className={moedaGlobal === "USD" ? "active" : ""}
+              onClick={() => setMoedaGlobal("USD")}
+            >
+              Dollar
+            </button>
+
+            <button
+              className={moedaGlobal === "EUR" ? "active" : ""}
+              onClick={() => setMoedaGlobal("EUR")}
+            >
+              Euro
+            </button>
+          </div>
+        </div>
+
+        {/* 🔥 CENTRO (menu) */}
+        <nav className="header-center">
           <ul> 
-            
             <li>
               <button
                 className={cartaoAtivo === "todos" ? "active" : ""}
@@ -405,6 +428,7 @@ function App() {
             </li>
           </ul>
         </nav>
+
       </header>
 
       <div className="main-box">
@@ -414,18 +438,10 @@ function App() {
           {/* ESQUERDA (25%) */}
           <div className="left">
 
-            {cartaoAtivo === "todos" && (
-              <div style={{ display: "flex", gap: "10px", marginBottom: 10 }}>
-                <button onClick={() => setMoedaGlobal("BRL")}>R$</button>
-                <button onClick={() => setMoedaGlobal("USD")}>USD</button>
-                <button onClick={() => setMoedaGlobal("EUR")}>EUR</button>
-              </div>
-            )}
-
             <div className="box saldo">
               <strong>Saldo</strong>
               <span>
-                {formatarMoeda(totalConvertido, simboloMoeda)}
+                {formatarMoeda(saldoTotal, simboloMoeda)}
               </span>
             </div>
 
@@ -452,9 +468,11 @@ function App() {
             <div className="top">
 
               {/* BOTÕES */}
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10}}>
 
-                <button onClick={() => setMostrarCambio(!mostrarCambio)}>
+                <button onClick={() => setMostrarCambio(!mostrarCambio)}
+                  style={{color: "white", borderRadius: 30}}
+                >
                   {mostrarCambio ? "Relatório Mensal" : "Taxa de Câmbio"}
                 </button>
 
@@ -466,7 +484,7 @@ function App() {
                         onClick={() => setAnoSelecionado(ano)}
                         style={{
                           background: anoSelecionado === ano ? "#4caf50" : "#1e1e2f",
-                          color: "white"
+                          color: "white", borderRadius: 30, 
                         }}
                       >
                         {ano}
@@ -755,28 +773,17 @@ function App() {
                       <td>{item.categoria}</td>
                       <td>
                         {formatarMoeda(
-                          cartaoAtivo === "todos"
-                            ? Number(item.valorConvertido)
-                            : Number(item.valor),
+                          Number(item.valorConvertido),
                           simboloMoeda
                         )}
                       </td>
 
                       <td>
                         {item.status === "receita" ? (
-                          <span className="badge bg-success">Receita</span>
+                          <span className="badge bg-success">                 </span>
                         ) : (
-                          <span className="badge bg-danger">Despesa</span>
+                          <span className="badge bg-danger">                 </span>
                         )}
-                      </td>
-
-                      <td>
-                        <button
-                          className="btn btn-danger btn-sm"
-                          onClick={() => deletar(item.id)}
-                        >
-                          Excluir
-                        </button>
                       </td>
                     </tr>
                   ))}
