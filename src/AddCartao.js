@@ -4,7 +4,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 function AddCartao({ onClose, onCreated }) {
   const [nome, setNome] = useState("");
   const [cor, setCor] = useState("#563d7c");
-  const [moeda, setMoeda] = useState("R$");
+  const [moeda, setMoeda] = useState("BRL");
 
   async function cadastrar(e) {
     e.preventDefault();
@@ -69,9 +69,9 @@ function AddCartao({ onClose, onCreated }) {
               value={moeda}
               onChange={(e) => setMoeda(e.target.value)}
             >
-              <option value="R$">Real (BRL)</option>
-              <option value="$">Dólar (USD)</option>
-              <option value="€">Euro (EUR)</option>
+              <option value="BRL">Real (BRL)</option>
+              <option value="USD">Dólar (USD)</option>
+              <option value="EUR">Euro (EUR)</option>
             </select>
           </div>
 

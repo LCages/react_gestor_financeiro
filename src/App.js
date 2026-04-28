@@ -6,6 +6,7 @@ import RemoverCartao from "./RemoverCartao";
 import React from "react";
 import CambioChart from "./CambioChart";
 import FinanceChart from "./FinanceChart";
+import { useMemo } from "react";
 
 function App() {
   const [dados, setDados] = useState([]);
@@ -16,9 +17,9 @@ function App() {
   const [mostrarRemover, setMostrarRemover] = useState(false);
   const [mostrarForm, setMostrarForm] = useState(false);
 
-  const [receitas, setReceitas] = useState(0);
+  /*const [receitas, setReceitas] = useState(0);
   const [despesas, setDespesas] = useState(0);
-  const [valorTotal, setValorTotal] = useState(0);
+  const [valorTotal, setValorTotal] = useState(0);*/
 
   const [busca, setBusca] = useState("");
 
@@ -38,12 +39,36 @@ function App() {
   const [selecionados, setSelecionados] = useState([]);
   const [modoSelecao, setModoSelecao] = useState(false);
 
+  const [moedaGlobal, setMoedaGlobal] = useState("BRL");
+  const [taxas, setTaxas] = useState({});
+
+  function normalizarMoeda(moeda) {
+    if (moeda === "R$") return "BRL";
+    if (moeda === "$") return "USD";
+    if (moeda === "€") return "EUR";
+    return moeda;
+  }
+
+  function formatarMoeda(valor, moeda) {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: moeda,
+    }).format(valor || 0);
+  }
+
+  const cartaoSelecionado = cartoes.find(c => c.id === cartaoAtivo);
+
+  const simboloMoeda =
+    cartaoAtivo === "todos"
+      ? normalizarMoeda(moedaGlobal)
+      : normalizarMoeda(cartaoSelecionado?.moeda || "BRL");
+
   // 🔥 carregar lançamentos
   const carregarDados = useCallback(async () => {
     try {
       let url = "http://localhost:3001/api/lancamentos";
 
-      if (cartaoAtivo) {
+      if (cartaoAtivo !== "todos") {
         url += `?cartoes=${cartaoAtivo}`;
       }
 
@@ -51,9 +76,6 @@ function App() {
       const data = await response.json();
 
       setDados(data.dados || []);
-      setReceitas(data.receitas || 0);
-      setDespesas(data.despesas || 0);
-      setValorTotal(data.valor_total || 0);
 
     } catch (error) {
       console.error(error);
@@ -69,6 +91,9 @@ function App() {
       setCartoes(data || []);
 
       if (data.length > 0) {
+        // 🔥 se for "todos", não muda
+        if (cartaoAtivo === "todos") return;
+
         const existe = data.find(c => c.id === cartaoAtivo);
 
         if (!existe) {
@@ -154,12 +179,61 @@ function App() {
     carregarDados();
   }
 
+  const dadosConvertidos = useMemo(() => {
+    if (cartaoAtivo !== "todos") return dados;
+
+    if (!taxas || Object.keys(taxas).length === 0) return dados;
+
+    return dados.map(item => {
+      const cartao = cartoes.find(c => c.id === item.cartoesId);
+      const moedaOrigem = normalizarMoeda(cartao?.moeda || "BRL");
+
+      const valorNumerico = parseFloat(
+        String(item.valor).replace(",", ".")
+      ) || 0;
+
+      const valorConvertido = converter(
+        valorNumerico,
+        moedaOrigem,
+        moedaGlobal
+      );
+
+      console.log({
+      valor: item.valor,
+      valorNumerico,
+      moedaOrigem,
+      moedaGlobal,
+      taxas
+    });
+
+      return {
+        ...item,
+        valorConvertido
+      };
+    });
+
+  }, [dados, cartoes, moedaGlobal, taxas, cartaoAtivo]);
+
+  const receitasConvertidas = dadosConvertidos
+    .filter(i => i.status === "receita")
+    .reduce((acc, i) =>
+      acc + Number(cartaoAtivo === "todos" ? i.valorConvertido : i.valor), 0
+    );
+
+  const despesasConvertidas = dadosConvertidos
+    .filter(i => i.status === "despesa")
+    .reduce((acc, i) =>
+      acc + Number(cartaoAtivo === "todos" ? i.valorConvertido : i.valor), 0
+    );
+
+  const totalConvertido = receitasConvertidas - despesasConvertidas;
+
   // 🔥 filtro busca (seguro)
-  const dadosFiltrados = (dados || []).filter((item) =>
+  const dadosFiltrados = (dadosConvertidos || []).filter((item) =>
     item.descricao?.toLowerCase().includes(busca.toLowerCase())
   );
 
-  const dadosDoAno = dados.filter(item => {
+  const dadosDoAno = dadosConvertidos.filter(item => {
     if (!item.data) return false;
     return new Date(item.data).getFullYear() === anoSelecionado;
   });
@@ -184,7 +258,7 @@ function App() {
     resumoCategorias[cat] = 0;
   });
 
-  const dadosFiltradosPeriodo = dados.filter(item => {
+  const dadosFiltradosPeriodo = dadosConvertidos.filter(item => {
   if (!item.data) return false;
 
   const d = new Date(item.data);
@@ -199,17 +273,22 @@ function App() {
   dadosFiltradosPeriodo.forEach((item) => {
     if (!item.categoria) return;
 
-    const valor = Number(item.valor) || 0;
+    const valor = Number(
+      cartaoAtivo === "todos"
+        ? item.valorConvertido
+        : item.valor
+    ) || 0;
 
     if (item.status === "receita") {
       resumoCategorias[item.categoria] += valor;
     } else {
       resumoCategorias[item.categoria] -= valor;
     }
+  
+  });
 
-    Object.entries(resumoCategorias)
-      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
-    });
+  const categoriasOrdenadas = Object.entries(resumoCategorias)
+      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
 
   const anosDisponiveis = [
     ...new Set(
@@ -232,6 +311,55 @@ function App() {
     setAnoSelecionado(hoje.getFullYear());
     setMesSelecionado(hoje.getMonth() + 1);
   }, []);
+
+  function converter(valor, moedaOrigem, moedaDestino) {
+    if (!taxas || !taxas[moedaOrigem] || !taxas[moedaDestino]) {
+      return valor;
+    }
+
+    if (moedaOrigem === moedaDestino) return valor;
+
+    let emEUR = moedaOrigem === "EUR"
+      ? valor
+      : valor / taxas[moedaOrigem];
+
+    return moedaDestino === "EUR"
+      ? emEUR
+      : emEUR * taxas[moedaDestino];
+  }
+
+  useEffect(() => {
+  async function carregarTaxas() {
+    try {
+      const res = await fetch(
+        "http://localhost:3001/api/cambio?from=EUR&to=BRL,USD"
+      );
+
+      const data = await res.json();
+
+      const ultimaData = Object.keys(data.rates).pop();
+      const rates = data.rates[ultimaData];
+
+      setTaxas({
+        EUR: 1,
+        BRL: rates.BRL,
+        USD: rates.USD
+      });
+
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  carregarTaxas();
+}, []);
+
+  useEffect(() => {
+    if (cartaoAtivo !== "todos") {
+      setMoedaGlobal("BRL");
+    }
+  }, [cartaoAtivo]);
+
   
   return (
     <div>
@@ -239,7 +367,17 @@ function App() {
       {/* HEADER */}
       <header className="header">
         <nav>
-          <ul>
+          <ul> 
+            
+            <li>
+              <button
+                className={cartaoAtivo === "todos" ? "active" : ""}
+                onClick={() => setCartaoAtivo("todos")}
+              >
+                Consolidado
+              </button>
+            </li>
+            
             {cartoes.map((c) => (
               <li key={c.id}>
                 <button
@@ -266,8 +404,6 @@ function App() {
         </nav>
       </header>
 
-
-
       <div className="main-box">
 
         <div className="layout">
@@ -275,24 +411,32 @@ function App() {
           {/* ESQUERDA (25%) */}
           <div className="left">
 
+            {cartaoAtivo === "todos" && (
+              <div style={{ display: "flex", gap: "10px", marginBottom: 10 }}>
+                <button onClick={() => setMoedaGlobal("BRL")}>R$</button>
+                <button onClick={() => setMoedaGlobal("USD")}>USD</button>
+                <button onClick={() => setMoedaGlobal("EUR")}>EUR</button>
+              </div>
+            )}
+
             <div className="box saldo">
               <strong>Saldo</strong>
               <span>
-                {cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$"} {valorTotal}
+                {formatarMoeda(totalConvertido, simboloMoeda)}
               </span>
             </div>
 
             <div className="box receita">
               <strong>Receitas</strong>
               <span>
-                {cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$"} {receitas}
+                {formatarMoeda(receitasConvertidas, simboloMoeda)}
               </span>
             </div>
 
             <div className="box despesa">
               <strong>Despesas</strong>
               <span>
-                {cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$"} {despesas}
+                {formatarMoeda(Math.abs(despesasConvertidas), simboloMoeda)}
               </span>
             </div>
 
@@ -410,7 +554,7 @@ function App() {
                         color: par[0][1] >= 0 ? "green" : "red",
                         fontWeight: "bold"
                       }}>
-                        {(cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$")} {Math.abs(par[0][1]).toFixed(2)}
+                        {formatarMoeda(Math.abs(par[0][1]), simboloMoeda)}
                       </td>
 
                       {/* COLUNA 2 */}
@@ -421,7 +565,7 @@ function App() {
                             color: par[1][1] >= 0 ? "green" : "red",
                             fontWeight: "bold"
                           }}>
-                            {(cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$")} {Math.abs(par[1][1]).toFixed(2)}
+                            {formatarMoeda(Math.abs(par[1][1]), simboloMoeda)}
                           </td>
                         </>
                       ) : (
@@ -607,7 +751,12 @@ function App() {
                       <td>{item.descricao}</td>
                       <td>{item.categoria}</td>
                       <td>
-                        {cartoes.find(c => c.id === cartaoAtivo)?.moeda || "R$"} {item.valor}
+                        {formatarMoeda(
+                          cartaoAtivo === "todos"
+                            ? Number(item.valorConvertido)
+                            : Number(item.valor),
+                          simboloMoeda
+                        )}
                       </td>
 
                       <td>
