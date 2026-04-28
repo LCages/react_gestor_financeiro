@@ -33,8 +33,10 @@ function App() {
 
 
   const [mostrarCambio, setMostrarCambio] = useState(false);
-  const [anoSelecionado, setAnoSelecionado] = useState(2026);
-  const [mesSelecionado, setMesSelecionado] = useState(new Date().getMonth() + 1);
+  const hoje = new Date();
+
+  const [anoSelecionado, setAnoSelecionado] = useState(hoje.getFullYear());
+  const [mesSelecionado, setMesSelecionado] = useState(hoje.getMonth() + 1);
 
   const [selecionados, setSelecionados] = useState([]);
   const [modoSelecao, setModoSelecao] = useState(false);
@@ -214,13 +216,24 @@ function App() {
 
   }, [dados, cartoes, moedaGlobal, taxas, cartaoAtivo]);
 
-  const receitasConvertidas = dadosConvertidos
+  const dadosFiltradosPeriodo = dadosConvertidos.filter(item => {
+    if (!item.data) return false;
+
+    const d = new Date(item.data);
+
+    return (
+      d.getFullYear() === anoSelecionado &&
+      d.getMonth() + 1 === mesSelecionado
+    );
+  });
+
+  const receitasConvertidas = dadosFiltradosPeriodo
     .filter(i => i.status === "receita")
     .reduce((acc, i) =>
       acc + Number(cartaoAtivo === "todos" ? i.valorConvertido : i.valor), 0
     );
 
-  const despesasConvertidas = dadosConvertidos
+  const despesasConvertidas = dadosFiltradosPeriodo
     .filter(i => i.status === "despesa")
     .reduce((acc, i) =>
       acc + Number(cartaoAtivo === "todos" ? i.valorConvertido : i.valor), 0
@@ -258,17 +271,6 @@ function App() {
     resumoCategorias[cat] = 0;
   });
 
-  const dadosFiltradosPeriodo = dadosConvertidos.filter(item => {
-  if (!item.data) return false;
-
-  const d = new Date(item.data);
-
-  return (
-    d.getFullYear() === anoSelecionado &&
-    d.getMonth() + 1 === mesSelecionado
-  );
-});
-
   // 🔥 soma os dados reais
   dadosFiltradosPeriodo.forEach((item) => {
     if (!item.categoria) return;
@@ -299,18 +301,19 @@ function App() {
   ].sort((a, b) => b - a); // ordem decrescente
 
   useEffect(() => {
-    if (anosDisponiveis.length === 0) return;
+  if (anosDisponiveis.length === 0) return;
 
-    if (!anoSelecionado || !anosDisponiveis.includes(anoSelecionado)) {
-      setAnoSelecionado(anosDisponiveis[0]);
-    }
-  }, [anosDisponiveis, anoSelecionado]);
+  const hoje = new Date();
+  const anoAtual = hoje.getFullYear();
 
-  useEffect(() => {
-    const hoje = new Date();
-    setAnoSelecionado(hoje.getFullYear());
-    setMesSelecionado(hoje.getMonth() + 1);
-  }, []);
+  // se o ano atual EXISTE nos dados → usa ele
+  if (anosDisponiveis.includes(anoAtual)) {
+    setAnoSelecionado(anoAtual);
+  } else {
+    // senão pega o mais recente
+    setAnoSelecionado(anosDisponiveis[0]);
+  }
+}, [anosDisponiveis]);
 
   function converter(valor, moedaOrigem, moedaDestino) {
     if (!taxas || !taxas[moedaOrigem] || !taxas[moedaDestino]) {
