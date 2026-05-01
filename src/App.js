@@ -17,9 +17,8 @@ function App() {
   const [mostrarRemover, setMostrarRemover] = useState(false);
   const [mostrarForm, setMostrarForm] = useState(false);
 
-  /*const [receitas, setReceitas] = useState(0);
-  const [despesas, setDespesas] = useState(0);
-  const [valorTotal, setValorTotal] = useState(0);*/
+  const [modoEdicao, setModoEdicao] = useState(false);
+  const [idEditando, setIdEditando] = useState(null);
 
   const [busca, setBusca] = useState("");
 
@@ -57,8 +56,6 @@ function App() {
       currency: moeda,
     }).format(valor || 0);
   }
-
-  const cartaoSelecionado = cartoes.find(c => c.id === cartaoAtivo);
 
   const simboloMoeda = moedaGlobal;
 
@@ -107,7 +104,11 @@ function App() {
 
   function formatarData(dataISO) {
     if (!dataISO) return "";
-    return new Date(dataISO).toLocaleDateString("pt-BR");
+
+    const dataLimpa = dataISO.split("T")[0]; // remove hora
+    const [ano, mes, dia] = dataLimpa.split("-");
+
+    return `${dia}/${mes}/${ano}`;
   }
 
   useEffect(() => {
@@ -130,8 +131,16 @@ function App() {
     }
 
     try {
-      const res = await fetch("http://localhost:3001/api/lancamentos", {
-        method: "POST",
+      let url = "http://localhost:3001/api/lancamentos";
+      let method = "POST";
+
+      if (modoEdicao) {
+        url += `/${idEditando}`;
+        method = "PUT";
+      }
+
+      const res = await fetch(url, {
+        method,
         headers: {
           "Content-Type": "application/json",
         },
@@ -151,7 +160,7 @@ function App() {
         return;
       }
 
-      // reset form
+      // 🔥 reset
       setDescricao("");
       setValor("");
       setCategoria("");
@@ -159,24 +168,33 @@ function App() {
       setCartoesId("");
       setMostrarForm(false);
 
+      setModoEdicao(false);
+      setIdEditando(null);
+      setSelecionados([]);
+
       carregarDados();
 
     } catch (err) {
       console.error(err);
-      alert("Erro ao cadastrar");
+      alert("Erro ao salvar");
     }
   }
 
-  // 🔥 deletar
-  async function deletar(id) {
-    if (!window.confirm("Excluir?")) return;
+    const converter = useCallback((valor, moedaOrigem, moedaDestino) => {
+    if (!taxas || !taxas[moedaOrigem] || !taxas[moedaDestino]) {
+      return valor;
+    }
 
-    await fetch(`http://localhost:3001/api/lancamentos/${id}`, {
-      method: "DELETE",
-    });
+    if (moedaOrigem === moedaDestino) return valor;
 
-    carregarDados();
-  }
+    let emEUR = moedaOrigem === "EUR"
+      ? valor
+      : valor / taxas[moedaOrigem];
+
+    return moedaDestino === "EUR"
+      ? emEUR
+      : emEUR * taxas[moedaDestino];
+  }, [taxas]);
 
   const dadosConvertidos = useMemo(() => {
 
@@ -186,23 +204,21 @@ function App() {
       const cartao = cartoes.find(c => c.id === item.cartoesId);
       const moedaOrigem = normalizarMoeda(cartao?.moeda || "BRL");
 
-      const valorNumerico = parseFloat(
-        String(item.valor).replace(",", ".")
-      ) || 0;
+      const valorNumerico =
+        typeof item.valor === "number"
+          ? item.valor
+          : Number(
+              String(item.valor).includes(",")
+                ? String(item.valor)
+                    .replace(/\./g, "") // milhar
+                    .replace(",", ".")  // decimal BR
+                : item.valor // já está correto (ex: 24.00)
+            ) || 0;
 
-      const valorConvertido = converter(
-        valorNumerico,
-        moedaOrigem,
-        moedaGlobal
-      );
-
-      console.log({
-      valor: item.valor,
-      valorNumerico,
-      moedaOrigem,
-      moedaGlobal,
-      taxas
-    });
+      const valorConvertido =
+        moedaOrigem === moedaGlobal
+          ? valorNumerico
+          : converter(valorNumerico, moedaOrigem, moedaGlobal);
 
       return {
         ...item,
@@ -210,16 +226,16 @@ function App() {
       };
     });
 
-  }, [dados, cartoes, moedaGlobal, taxas, cartaoAtivo]);
+  }, [dados, cartoes, moedaGlobal, taxas, converter]);
 
   const dadosFiltradosPeriodo = dadosConvertidos.filter(item => {
     if (!item.data) return false;
 
-    const d = new Date(item.data);
+    const [ano, mes] = item.data.split("T")[0].split("-");
 
     return (
-      d.getFullYear() === anoSelecionado &&
-      d.getMonth() + 1 === mesSelecionado
+      Number(ano) === anoSelecionado &&
+      Number(mes) === mesSelecionado
     );
   });
 
@@ -234,8 +250,6 @@ function App() {
     .reduce((acc, i) =>
       acc + Number(i.valorConvertido), 0
     );
-
-  const totalConvertido = receitasConvertidas - despesasConvertidas;
 
   const saldoTotal = dadosConvertidos.reduce((acc, item) => {
     const valor = Number(item.valorConvertido) || 0;
@@ -254,7 +268,11 @@ function App() {
 
   const dadosDoAno = dadosConvertidos.filter(item => {
     if (!item.data) return false;
-    return new Date(item.data).getFullYear() === anoSelecionado;
+
+    const dataLimpa = item.data.split("T")[0];
+    const [ano] = dataLimpa.split("-");
+
+    return Number(ano) === anoSelecionado;
   });
 
   const categoriasFixas = [
@@ -291,47 +309,21 @@ function App() {
   
   });
 
-  const categoriasOrdenadas = Object.entries(resumoCategorias)
-      .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
-
   const anosDisponiveis = [
     ...new Set(
       dados
         .filter(item => item.data)
-        .map(item => new Date(item.data).getFullYear())
+        .map(item => Number(item.data.split("T")[0].split("-")[0]))
     )
-  ].sort((a, b) => b - a); // ordem decrescente
+  ].sort((a, b) => b - a);
 
   useEffect(() => {
-  if (anosDisponiveis.length === 0) return;
+    if (anosDisponiveis.length === 0) return;
 
-  const hoje = new Date();
-  const anoAtual = hoje.getFullYear();
-
-  // se o ano atual EXISTE nos dados → usa ele
-  if (anosDisponiveis.includes(anoAtual)) {
-    setAnoSelecionado(anoAtual);
-  } else {
-    // senão pega o mais recente
-    setAnoSelecionado(anosDisponiveis[0]);
-  }
-}, [anosDisponiveis]);
-
-  function converter(valor, moedaOrigem, moedaDestino) {
-    if (!taxas || !taxas[moedaOrigem] || !taxas[moedaDestino]) {
-      return valor;
+    if (!anosDisponiveis.includes(anoSelecionado)) {
+      setAnoSelecionado(anosDisponiveis[0]);
     }
-
-    if (moedaOrigem === moedaDestino) return valor;
-
-    let emEUR = moedaOrigem === "EUR"
-      ? valor
-      : valor / taxas[moedaOrigem];
-
-    return moedaDestino === "EUR"
-      ? emEUR
-      : emEUR * taxas[moedaDestino];
-  }
+  }, [anosDisponiveis, anoSelecionado]);
 
   useEffect(() => {
   async function carregarTaxas() {
@@ -416,14 +408,23 @@ function App() {
             ))}
 
             <li>
-              <button onClick={() => setMostrarCartao(true)}>
-                + Cartão
+              <button
+                onClick={() => {
+                  if (cartoes.length >= 3) {
+                    alert("Você já atingiu o limite de 3 cartões.");
+                    return;
+                  }
+                  setMostrarCartao(true);
+                }}
+                className="icon-btn"
+              >
+                <img src="/plus_v2.png" alt="Adicionar cartão" />
               </button>
             </li>
 
             <li>
-              <button onClick={() => setMostrarRemover(true)}>
-                - Cartão
+              <button onClick={() => setMostrarRemover(true)} className="icon-btn">
+                <img src="/moins_v2.png" alt="Remover cartão" />
               </button>
             </li>
           </ul>
@@ -467,25 +468,33 @@ function App() {
             {/* PARTE DE CIMA */}
             <div className="top">
 
-              {/* BOTÕES */}
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10}}>
+              <div className="top-bar">
+  
+                {/* BOTÕES */}
+                <div className="actions-buttons">
+                  <button
+                    className={!mostrarCambio ? "active" : ""}
+                    onClick={() => setMostrarCambio(false)}
+                  >
+                    Relatório Mensal
+                  </button>
 
-                <button onClick={() => setMostrarCambio(!mostrarCambio)}
-                  style={{color: "white", borderRadius: 30}}
-                >
-                  {mostrarCambio ? "Relatório Mensal" : "Taxa de Câmbio"}
-                </button>
+                  <button
+                    className={mostrarCambio ? "active" : ""}
+                    onClick={() => setMostrarCambio(true)}
+                  >
+                    Taxa de Câmbio
+                  </button>
+                </div>
 
+                {/* ANO */}
                 {!mostrarCambio && (
-                  <div style={{ display: "flex", gap: "5px" }}>
+                  <div className="year-buttons">
                     {anosDisponiveis.map((ano) => (
                       <button
                         key={ano}
+                        className={anoSelecionado === ano ? "active" : ""}
                         onClick={() => setAnoSelecionado(ano)}
-                        style={{
-                          background: anoSelecionado === ano ? "#4caf50" : "#1e1e2f",
-                          color: "white", borderRadius: 30, 
-                        }}
                       >
                         {ano}
                       </button>
@@ -499,7 +508,10 @@ function App() {
               {mostrarCambio ? (
                 <CambioChart />
               ) : (
-                <FinanceChart dados={dadosDoAno} />
+                <FinanceChart 
+                  dados={dadosDoAno} 
+                  moeda={moedaGlobal}
+                />
               )}
 
             </div>
@@ -511,9 +523,7 @@ function App() {
 
         <div className="main-tab-categorias">
 
-          <div className="box-categorias">
-
-            <div className="button-mm-yy">
+          <div className="button-mm-yy">
 
               {/* ANO */}
               <select
@@ -530,7 +540,10 @@ function App() {
               {/* MÊS */}
               <select
                 value={mesSelecionado}
-                onChange={(e) => setMesSelecionado(Number(e.target.value))}
+                onChange={(e) => {
+                  const novoMes = Number(e.target.value);
+                  setMesSelecionado(novoMes);
+                }}
               >
                 <option value={1}>Janeiro</option>
                 <option value={2}>Fevereiro</option>
@@ -600,195 +613,238 @@ function App() {
                   ))}
               </tbody>
             </table>
-          </div>
 
         </div>
 
 
         <div className="box-tabela-search">
           <div className="dvSearch">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Buscar..."
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                />
+            <input
+              type="text"
+              className="form-control"
+              placeholder=" Buscar..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
 
-                <div style={{ display: "flex", gap: "10px" }}>
-                  <button
-                    className="btn btn-primary"
-                    onClick={() => setMostrarForm(!mostrarForm)}
-                  >
-                    {mostrarForm ? "Fechar" : "Adicionar"}
-                  </button>
+            <div className="actions-buttons">
+              <button
+                className="btn btn-primary"
+                onClick={() => setMostrarForm(!mostrarForm)}
+              >
+                {mostrarForm ? "Fechar" : "Adicionar"}
+              </button>
 
-                  <button
-                    className={`btn ${modoSelecao ? "btn-warning" : "btn-secondary"}`}
-                    onClick={() => {
-                      setModoSelecao(!modoSelecao);
-                      setSelecionados([]);
-                    }}
-                  >
-                    {modoSelecao ? "Cancelar seleção" : "Selecionar"}
-                  </button>
+              <button
+                className={`btn ${modoSelecao ? "btn-warning" : "btn-secondary"}`}
+                onClick={() => {
+                  setModoSelecao(!modoSelecao);
+                  setSelecionados([]);
+                }}
+              >
+                {modoSelecao ? "Cancelar seleção" : "Selecionar"}
+              </button>
 
-                  <button
-                    className="btn btn-danger"
-                    disabled={selecionados.length === 0}
-                    onClick={async () => {
-                      if (!window.confirm("Excluir selecionados?")) return;
+              <button
+                className={`btn-edit ${modoEdicao ? "active" : ""}`}
+                disabled={selecionados.length !== 1}
+                onClick={() => {
+                  const id = selecionados[0];
+                  const item = dados.find(i => i.id === id);
 
-                      await Promise.all(
-                        selecionados.map(id =>
-                          fetch(`http://localhost:3001/api/lancamentos/${id}`, {
-                            method: "DELETE"
-                          })
-                        )
-                      );
+                  if (!item) return;
 
-                      setSelecionados([]);
-                      setModoSelecao(false);
-                      carregarDados();
-                    }}
-                  >
-                    Excluir
-                  </button>
-                </div>
-              </div>
+                  setModoEdicao(true);
+                  setIdEditando(id);
 
-              {mostrarForm && (
-                <form onSubmit={cadastrar} className="card p-3 mt-3">
+                  // 🔥 preenche form
+                  setData(item.data?.split("T")[0] || "");
+                  setDescricao(item.descricao);
+                  setValor(item.valor);
+                  setCategoria(item.categoria);
+                  setStatus(item.status);
+                  setCartoesId(item.cartoesId);
 
-                  <input
-                    type="date"
-                    className="form-control mb-2"
-                    value={data}
-                    onChange={(e) => setData(e.target.value)}
-                    required
-                  />
+                  setMostrarForm(true);
+                }}
+              >
+                Editar
+              </button>
 
-                  <select
-                    className="form-control mb-2"
-                    value={categoria}
-                    onChange={(e) => setCategoria(e.target.value)}
-                    required
-                  >
-                    <option value="">Categoria</option>
-                    <option>Salário</option>
-                    <option>Moradia</option>
-                    <option>Mercado</option>
-                    <option>Restaurante</option>
-                    <option>Assinaturas</option>
-                    <option>Passeio</option>
-                    <option>Saúde</option>
-                    <option>Transporte</option>
-                    <option>Compras</option>
-                    <option>Outros</option>
-                  </select>
+              <button
+                className="btn-delete"
+                disabled={selecionados.length === 0}
+                onClick={async () => {
+                  if (!window.confirm("Excluir selecionados?")) return;
 
-                  <input
-                    type="text"
-                    placeholder="Descrição"
-                    className="form-control mb-2"
-                    value={descricao}
-                    onChange={(e) => setDescricao(e.target.value)}
-                    required
-                  />
+                  await Promise.all(
+                    selecionados.map(id =>
+                      fetch(`http://localhost:3001/api/lancamentos/${id}`, {
+                        method: "DELETE"
+                      })
+                    )
+                  );
 
-                  <input
-                    type="number"
-                    placeholder="Valor"
-                    step="0.01"
-                    className="form-control mb-2"
-                    value={valor}
-                    onChange={(e) => setValor(e.target.value)}
-                    required
-                  />
+                  setSelecionados([]);
+                  setModoSelecao(false);
+                  carregarDados();
+                }}
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
 
-                  <select
-                    className="form-control mb-2"
-                    value={cartoesId}
-                    onChange={(e) => setCartoesId(e.target.value)}
-                    required
-                  >
-                    <option value="">Cartão</option>
-                    {cartoes.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nome}
-                      </option>
-                    ))}
-                  </select>
+          {mostrarForm && (
+            <form onSubmit={cadastrar} className="card p-3 mt-3">
 
-                  <select
-                    className="form-control mb-2"
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                  >
-                    <option value="receita">Receita</option>
-                    <option value="despesa">Despesa</option>
-                  </select>
+              <input
+                type="date"
+                className="form-control mb-2"
+                value={data}
+                onChange={(e) => setData(e.target.value)}
+                required
+              />
 
-                  <button className="btn btn-success">Cadastrar</button>
-                </form>
+              <select
+                className="form-control mb-2"
+                value={categoria}
+                onChange={(e) => setCategoria(e.target.value)}
+                required
+              >
+                <option value="">Categoria</option>
+                <option>Salário</option>
+                <option>Moradia</option>
+                <option>Mercado</option>
+                <option>Restaurante</option>
+                <option>Assinaturas</option>
+                <option>Passeio</option>
+                <option>Saúde</option>
+                <option>Transporte</option>
+                <option>Compras</option>
+                <option>Outros</option>
+              </select>
+
+              <input
+                type="text"
+                placeholder="Descrição"
+                className="form-control mb-2"
+                value={descricao}
+                onChange={(e) => setDescricao(e.target.value)}
+                required
+              />
+
+              <input
+                type="number"
+                placeholder="Valor"
+                step="0.01"
+                className="form-control mb-2"
+                value={valor}
+                onChange={(e) => setValor(e.target.value)}
+                required
+              />
+
+              <select
+                className="form-control mb-2"
+                value={cartoesId}
+                onChange={(e) => setCartoesId(e.target.value)}
+                required
+              >
+                <option value="">Cartão</option>
+                {cartoes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="form-control mb-2"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                <option value="receita">Receita</option>
+                <option value="despesa">Despesa</option>
+              </select>
+
+              <button className="btn btn-success">
+                {modoEdicao ? "Salvar Alterações" : "Cadastrar"}
+              </button>
+
+              {modoEdicao && (
+                <button
+                  type="button"
+                  className="btn btn-secondary mt-2"
+                  onClick={() => {
+                    setModoEdicao(false);
+                    setIdEditando(null);
+                    setMostrarForm(false);
+                  }}
+                >
+                  Cancelar edição
+                </button>
               )}
+            </form>
+          )}
 
-              <table className="dvTabela">
-                <thead>
-                  <tr>
-                    {modoSelecao && <th></th>}
-                    <th>Data</th>
-                    <th>Descrição</th>
-                    <th>Categoria</th>
-                    <th>Valor</th>
-                    <th>Status</th>
-                    <th></th>
-                  </tr>
-                </thead>
+          <div class="table-wrapper">
+            <table className="dvTabela">
+              <thead>
+                <tr>
+                  {modoSelecao && <th></th>}
+                  <th>Data</th>
+                  <th>Descrição</th>
+                  <th>Categoria</th>
+                  <th>Valor</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
 
-                <tbody>
-                  {dadosFiltrados.map((item) => (
-                    <tr key={item.id} style={{
-                      backgroundColor: selecionados.includes(item.id)
-                        ? "#ffe5e5"
-                        : "transparent"
-                    }}>
-                      {modoSelecao && (
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selecionados.includes(item.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelecionados([...selecionados, item.id]);
-                              } else {
-                                setSelecionados(selecionados.filter(id => id !== item.id));
-                              }
-                            }}
-                          />
-                        </td>
+              <tbody>
+                {dadosFiltrados.map((item) => (
+                  <tr key={item.id} style={{
+                    backgroundColor: selecionados.includes(item.id)
+                      ? "#ffe5e5"
+                      : "transparent"
+                  }}>
+                    {modoSelecao && (
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selecionados.includes(item.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelecionados([...selecionados, item.id]);
+                            } else {
+                              setSelecionados(selecionados.filter(id => id !== item.id));
+                            }
+                          }}
+                        />
+                      </td>
+                    )}
+                    <td>{formatarData(item.data)}</td>
+                    <td>{item.descricao}</td>
+                    <td>{item.categoria}</td>
+                    <td>
+                      {formatarMoeda(
+                        Number(item.valorConvertido),
+                        simboloMoeda
                       )}
-                      <td>{formatarData(item.data)}</td>
-                      <td>{item.descricao}</td>
-                      <td>{item.categoria}</td>
-                      <td>
-                        {formatarMoeda(
-                          Number(item.valorConvertido),
-                          simboloMoeda
-                        )}
-                      </td>
+                    </td>
 
-                      <td>
-                        {item.status === "receita" ? (
-                          <span className="badge bg-success">                 </span>
-                        ) : (
-                          <span className="badge bg-danger">                 </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    <td>
+                      {item.status === "receita" ? (
+                        <span className="badge bg-success"> </span>
+                      ) : (
+                        <span className="badge bg-danger"> </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 

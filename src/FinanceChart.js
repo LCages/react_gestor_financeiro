@@ -28,18 +28,25 @@ function FinanceChart({ dados }) {
     dados.forEach((item) => {
       if (!item.data) return;
 
-      const data = new Date(item.data);
-      const mes = data.getMonth();
+      const dataLimpa = item.data.split("T")[0];
+      const [, mes] = dataLimpa.split("-");
+
+      const mesNumero = Number(mes) - 1;
+
+      const valor = Number(item.valorConvertido) || 0;
+
+      if (mesNumero < 0 || mesNumero > 11) return;
 
       if (item.status === "receita") {
-        resumo[mes].receita += Number(item.valor);
+        resumo[mesNumero].receita += valor;
       } else {
-        resumo[mes].despesa += Number(item.valor);
+        resumo[mesNumero].despesa += valor;
       }
     });
 
-    setDadosMensais(resumo);
-  }, [dados]);
+    setDadosMensais(resumo); // 🔥 FALTAVA ISSO
+
+  }, [dados]); // 🔥 FALTAVA FECHAR
 
   return (
     <div style={{ width: "100%", height: 300 }}>

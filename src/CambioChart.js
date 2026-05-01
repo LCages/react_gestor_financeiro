@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   LineChart,
   Line,
@@ -14,12 +14,11 @@ function CambioChart() {
   const [loading, setLoading] = useState(true);
   const [par, setPar] = useState({ from: "EUR", to: "BRL" });
 
-  const buscarDados = () => {
+  // 🔥 Agora memorizada corretamente
+  const buscarDados = useCallback(() => {
     setLoading(true);
 
-    fetch(
-      `http://localhost:3001/api/cambio?from=${par.from}&to=${par.to}`
-    )
+    fetch(`http://localhost:3001/api/cambio?from=${par.from}&to=${par.to}`)
       .then((res) => res.json())
       .then((json) => {
         if (!json.rates) {
@@ -42,7 +41,7 @@ function CambioChart() {
         console.error(err);
         setLoading(false);
       });
-  };
+  }, [par]); // 🔥 depende do par
 
   useEffect(() => {
     buscarDados();
@@ -52,7 +51,7 @@ function CambioChart() {
     }, 24 * 60 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [par]);
+  }, [buscarDados]); // 🔥 agora correto
 
   if (loading) return <p>Carregando gráfico...</p>;
   if (data.length === 0) return <p>Nenhum dado encontrado.</p>;
@@ -60,7 +59,7 @@ function CambioChart() {
   return (
     <div className="grafico-container">
 
-      {/* 🔥 BOTÕES */}
+      {/* BOTÕES */}
       <div className="botoes-cambio">
         <button
           className={`botao-cambio ${
