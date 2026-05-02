@@ -7,6 +7,7 @@ import React from "react";
 import CambioChart from "./CambioChart";
 import FinanceChart from "./FinanceChart";
 import { useMemo } from "react";
+import API_URL from "./config";
 
 function App() {
   const [dados, setDados] = useState([]);
@@ -62,7 +63,7 @@ function App() {
   // 🔥 carregar lançamentos
   const carregarDados = useCallback(async () => {
     try {
-      let url = "http://localhost:3001/api/lancamentos";
+      let url = `${API_URL}/lancamentos`;
 
       if (cartaoAtivo !== "todos") {
         url += `?cartoes=${cartaoAtivo}`;
@@ -81,7 +82,7 @@ function App() {
   // 🔥 carregar cartões
   const carregarCartoes = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:3001/api/cartoes");
+      const res = await fetch(`${API_URL}/cartoes`);
       const data = await res.json();
 
       setCartoes(data || []);
@@ -131,7 +132,7 @@ function App() {
     }
 
     try {
-      let url = "http://localhost:3001/api/lancamentos";
+      let url = `${API_URL}/lancamentos`;
       let method = "POST";
 
       if (modoEdicao) {
@@ -329,7 +330,7 @@ function App() {
   async function carregarTaxas() {
     try {
       const res = await fetch(
-        "http://localhost:3001/api/cambio?from=EUR&to=BRL,USD"
+        `${API_URL}/cambio?from=EUR&to=BRL,USD`
       );
 
       const data = await res.json();
@@ -679,7 +680,7 @@ function App() {
 
                   await Promise.all(
                     selecionados.map(id =>
-                      fetch(`http://localhost:3001/api/lancamentos/${id}`, {
+                      fetch(`${API_URL}/lancamentos/${id}`, {
                         method: "DELETE"
                       })
                     )
