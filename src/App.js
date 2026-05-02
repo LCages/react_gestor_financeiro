@@ -328,6 +328,7 @@ function App() {
 
   useEffect(() => {
   async function carregarTaxas() {
+    console.log(`${API_URL}/cambio?from=EUR&to=BRL,USD`);
     try {
       const res = await fetch(
         `${API_URL}/cambio?from=EUR&to=BRL,USD`
