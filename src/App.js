@@ -349,7 +349,7 @@ function App() {
   }
 
   carregarTaxas();
-}, []);
+  }, []);
 
   
   return (
