@@ -1,7 +1,7 @@
-//const API_URL = "https://api-gestor-financeiro.onrender.com/api";
+const API_URL = "https://api-gestor-financeiro.onrender.com/api";
 
-const LOCAL_API_URL = "http://localhost:3000/api";
+//const LOCAL_API_URL = "http://localhost:3000/api";
 
 
 
-export default LOCAL_API_URL;
+export default API_URL;

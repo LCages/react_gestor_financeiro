@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import LOCAL_API_URL from "./config";
+import API_URL from "./config";
 
 import {
   LineChart,
@@ -20,7 +20,7 @@ function CambioChart() {
   const buscarDados = useCallback(() => {
     setLoading(true);
 
-    fetch(`${LOCAL_API_URL}/cambio?from=${par.from}&to=${par.to}`)
+    fetch(`${API_URL}/cambio?from=${par.from}&to=${par.to}`)
       .then((res) => res.json())
       .then((json) => {
         if (!json.rates) {

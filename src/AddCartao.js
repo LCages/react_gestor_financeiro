@@ -1,6 +1,6 @@
 import { useState } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
-import LOCAL_API_URL from "./config";
+import API_URL from "./config";
 
 function AddCartao({ onClose, onCreated }) {
   const [nome, setNome] = useState("");
@@ -11,7 +11,7 @@ function AddCartao({ onClose, onCreated }) {
     e.preventDefault();
 
     try {
-      await fetch(`${LOCAL_API_URL}/cartoes`, {
+      await fetch(`${API_URL}/cartoes`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

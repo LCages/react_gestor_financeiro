@@ -1,5 +1,5 @@
 import { useState } from "react";
-import LOCAL_API_URL from "./config";
+import API_URL from "./config";
 
 function RemoverCartao({ cartoes, onClose, onDeleted }) {
   const [cartaoId, setCartaoId] = useState("");
@@ -14,7 +14,7 @@ function RemoverCartao({ cartoes, onClose, onDeleted }) {
 
     try {
       const res = await fetch(
-        `${LOCAL_API_URL}/cartoes/${cartaoId}`,
+        `${API_URL}/cartoes/${cartaoId}`,
         { method: "DELETE" }
       );
 
