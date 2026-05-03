@@ -10,7 +10,7 @@ import {
   Legend
 } from "recharts";
 
-function FinanceChart({ dados }) {
+function FinanceChart({ dados, isMobile, semestre }) {
   const [dadosMensais, setDadosMensais] = useState([]);
 
   useEffect(() => {
@@ -32,7 +32,6 @@ function FinanceChart({ dados }) {
       const [, mes] = dataLimpa.split("-");
 
       const mesNumero = Number(mes) - 1;
-
       const valor = Number(item.valorConvertido) || 0;
 
       if (mesNumero < 0 || mesNumero > 11) return;
@@ -44,12 +43,23 @@ function FinanceChart({ dados }) {
       }
     });
 
-    setDadosMensais(resumo); // 🔥 FALTAVA ISSO
+    // 🔥 FILTRO PARA MOBILE (6 MESES)
+    let dadosFinal = resumo;
 
-  }, [dados]); // 🔥 FALTAVA FECHAR
+    if (isMobile) {
+      if (semestre === 1) {
+        dadosFinal = resumo.slice(0, 6); // Jan-Jun
+      } else {
+        dadosFinal = resumo.slice(6, 12); // Jul-Dez
+      }
+    }
+
+    setDadosMensais(dadosFinal);
+
+  }, [dados, isMobile, semestre]);
 
   return (
-    <div style={{ width: "100%", height: 300 }}>
+    <div style={{ width: "100%", height: 300}}>
       <ResponsiveContainer>
         <LineChart data={dadosMensais}>
           <CartesianGrid strokeDasharray="3 3" />

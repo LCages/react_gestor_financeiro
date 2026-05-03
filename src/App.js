@@ -7,9 +7,10 @@ import React from "react";
 import CambioChart from "./CambioChart";
 import FinanceChart from "./FinanceChart";
 import { useMemo } from "react";
-import API_URL from "./config";
+import LOCAL_API_URL from "./config";
 
 function App() {
+  const [semestre, setSemestre] = useState(1); // 1 = Jan-Jun | 2 = Jul-Dez
   const [dados, setDados] = useState([]);
   const [cartoes, setCartoes] = useState([]);
   const [cartaoAtivo, setCartaoAtivo] = useState(null);
@@ -44,6 +45,17 @@ function App() {
   const [moedaGlobal, setMoedaGlobal] = useState("BRL");
   const [taxas, setTaxas] = useState({});
 
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 600);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 600);
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   function normalizarMoeda(moeda) {
     if (moeda === "R$") return "BRL";
     if (moeda === "$") return "USD";
@@ -63,7 +75,7 @@ function App() {
   // 🔥 carregar lançamentos
   const carregarDados = useCallback(async () => {
     try {
-      let url = `${API_URL}/lancamentos`;
+      let url = `${LOCAL_API_URL}/lancamentos`;
 
       if (cartaoAtivo !== "todos") {
         url += `?cartoes=${cartaoAtivo}`;
@@ -82,7 +94,7 @@ function App() {
   // 🔥 carregar cartões
   const carregarCartoes = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/cartoes`);
+      const res = await fetch(`${LOCAL_API_URL}/cartoes`);
       const data = await res.json();
 
       setCartoes(data || []);
@@ -132,7 +144,7 @@ function App() {
     }
 
     try {
-      let url = `${API_URL}/lancamentos`;
+      let url = `${LOCAL_API_URL}/lancamentos`;
       let method = "POST";
 
       if (modoEdicao) {
@@ -328,10 +340,9 @@ function App() {
 
   useEffect(() => {
   async function carregarTaxas() {
-    console.log(`${API_URL}/cambio?from=EUR&to=BRL,USD`);
     try {
       const res = await fetch(
-        `${API_URL}/cambio?from=EUR&to=BRL,USD`
+        `${LOCAL_API_URL}/cambio?from=EUR&to=BRL,USD`
       );
 
       const data = await res.json();
@@ -361,30 +372,32 @@ function App() {
       <header className="header">
 
         {/* 🔥 ESQUERDA (moeda) */}
-        <div className="header-left">
-          <div className="currency-buttons">
-            <button
-              className={moedaGlobal === "BRL" ? "active" : ""}
-              onClick={() => setMoedaGlobal("BRL")}
-            >
-              Real
-            </button>
+        {!isMobile && (
+          <div className="header-left">
+            <div className="currency-buttons">
+              <button
+                className={moedaGlobal === "BRL" ? "active" : ""}
+                onClick={() => setMoedaGlobal("BRL")}
+              >
+                Real
+              </button>
 
-            <button
-              className={moedaGlobal === "USD" ? "active" : ""}
-              onClick={() => setMoedaGlobal("USD")}
-            >
-              Dollar
-            </button>
+              <button
+                className={moedaGlobal === "USD" ? "active" : ""}
+                onClick={() => setMoedaGlobal("USD")}
+              >
+                Dollar
+              </button>
 
-            <button
-              className={moedaGlobal === "EUR" ? "active" : ""}
-              onClick={() => setMoedaGlobal("EUR")}
-            >
-              Euro
-            </button>
+              <button
+                className={moedaGlobal === "EUR" ? "active" : ""}
+                onClick={() => setMoedaGlobal("EUR")}
+              >
+                Euro
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* 🔥 CENTRO (menu) */}
         <nav className="header-center">
@@ -433,6 +446,33 @@ function App() {
         </nav>
 
       </header>
+
+      {isMobile && (
+        <div className="mobile-currency-wrapper">
+          <div className="currency-buttons">
+            <button
+              className={moedaGlobal === "BRL" ? "active" : ""}
+              onClick={() => setMoedaGlobal("BRL")}
+            >
+              Real
+            </button>
+
+            <button
+              className={moedaGlobal === "USD" ? "active" : ""}
+              onClick={() => setMoedaGlobal("USD")}
+            >
+              Dollar
+            </button>
+
+            <button
+              className={moedaGlobal === "EUR" ? "active" : ""}
+              onClick={() => setMoedaGlobal("EUR")}
+            >
+              Euro
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="main-box">
 
@@ -485,24 +525,36 @@ function App() {
                     className={mostrarCambio ? "active" : ""}
                     onClick={() => setMostrarCambio(true)}
                   >
-                    Taxa de Câmbio
+                    Câmbio
                   </button>
                 </div>
 
                 {/* ANO */}
-                {!mostrarCambio && (
-                  <div className="year-buttons">
-                    {anosDisponiveis.map((ano) => (
-                      <button
-                        key={ano}
-                        className={anoSelecionado === ano ? "active" : ""}
-                        onClick={() => setAnoSelecionado(ano)}
+                  {!mostrarCambio && (
+                    <div className="button-mm-yy">
+                      <select
+                        value={anoSelecionado}
+                        onChange={(e) => setAnoSelecionado(Number(e.target.value))}
                       >
-                        {ano}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                        {anosDisponiveis.map((ano) => (
+                          <option key={ano} value={ano}>
+                            {ano}
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* 🔥 NOVO SELECT (só mobile) */}
+                      {isMobile && !mostrarCambio && (
+                        <select
+                          value={semestre}
+                          onChange={(e) => setSemestre(Number(e.target.value))}
+                        >
+                          <option value={1}>Jan - Jun</option>
+                          <option value={2}>Jul - Dez</option>
+                        </select>
+                      )}
+                    </div>
+                  )}
 
               </div>
 
@@ -513,6 +565,8 @@ function App() {
                 <FinanceChart 
                   dados={dadosDoAno} 
                   moeda={moedaGlobal}
+                  isMobile={isMobile}
+                  semestre={semestre}
                 />
               )}
 
@@ -568,51 +622,61 @@ function App() {
                 <tr>
                   <th>Categoria</th>
                   <th>Total</th>
-                  <th>Categoria</th>
-                  <th>Total</th>
+                  {!isMobile && <th>Categoria</th>}
+                  {!isMobile && <th>Total</th>}
                 </tr>
               </thead>
 
               <tbody>
-                {Object.entries(resumoCategorias)
-                  .reduce((acc, curr, i, arr) => {
-                    if (i % 2 === 0) {
-                      acc.push([curr, arr[i + 1]]);
-                    }
-                    return acc;
-                  }, [])
-                  .map((par, index) => (
+                {isMobile ? (
+                  Object.entries(resumoCategorias).map(([categoria, valor], index) => (
                     <tr key={index}>
-
-                      {/* COLUNA 1 */}
-                      <td>{par[0][0]}</td>
+                      <td>{categoria}</td>
                       <td style={{
-                        color: par[0][1] >= 0 ? "green" : "red",
+                        color: valor >= 0 ? "green" : "red",
                         fontWeight: "bold"
                       }}>
-                        {formatarMoeda(Math.abs(par[0][1]), simboloMoeda)}
+                        {formatarMoeda(Math.abs(valor), simboloMoeda)}
                       </td>
-
-                      {/* COLUNA 2 */}
-                      {par[1] ? (
-                        <>
-                          <td>{par[1][0]}</td>
-                          <td style={{
-                            color: par[1][1] >= 0 ? "green" : "red",
-                            fontWeight: "bold"
-                          }}>
-                            {formatarMoeda(Math.abs(par[1][1]), simboloMoeda)}
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td></td>
-                          <td></td>
-                        </>
-                      )}
-
                     </tr>
-                  ))}
+                  ))
+                ) : (
+                  Object.entries(resumoCategorias)
+                    .reduce((acc, curr, i, arr) => {
+                      if (i % 2 === 0) {
+                        acc.push([curr, arr[i + 1]]);
+                      }
+                      return acc;
+                    }, [])
+                    .map((par, index) => (
+                      <tr key={index}>
+                        <td>{par[0][0]}</td>
+                        <td style={{
+                          color: par[0][1] >= 0 ? "green" : "red",
+                          fontWeight: "bold"
+                        }}>
+                          {formatarMoeda(Math.abs(par[0][1]), simboloMoeda)}
+                        </td>
+
+                        {par[1] ? (
+                          <>
+                            <td>{par[1][0]}</td>
+                            <td style={{
+                              color: par[1][1] >= 0 ? "green" : "red",
+                              fontWeight: "bold"
+                            }}>
+                              {formatarMoeda(Math.abs(par[1][1]), simboloMoeda)}
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                            <td></td>
+                            <td></td>
+                          </>
+                        )}
+                      </tr>
+                    ))
+                )}
               </tbody>
             </table>
 
@@ -681,7 +745,7 @@ function App() {
 
                   await Promise.all(
                     selecionados.map(id =>
-                      fetch(`${API_URL}/lancamentos/${id}`, {
+                      fetch(`${LOCAL_API_URL}/lancamentos/${id}`, {
                         method: "DELETE"
                       })
                     )
@@ -789,7 +853,7 @@ function App() {
             </form>
           )}
 
-          <div class="table-wrapper">
+          <div className="table-wrapper">
             <table className="dvTabela">
               <thead>
                 <tr>
