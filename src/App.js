@@ -399,51 +399,71 @@ function App() {
           </div>
         )}
 
-        {/* 🔥 CENTRO (menu) */}
         <nav className="header-center">
-          <ul> 
-            <li>
-              <button
-                className={cartaoAtivo === "todos" ? "active" : ""}
-                onClick={() => setCartaoAtivo("todos")}
-              >
-                Consolidado
-              </button>
-            </li>
-            
-            {cartoes.map((c) => (
-              <li key={c.id}>
+          {!isMobile ? (
+            <ul>
+              <li>
                 <button
-                  className={cartaoAtivo === c.id ? "active" : ""}
-                  onClick={() => setCartaoAtivo(c.id)}
+                  className={cartaoAtivo === "todos" ? "active" : ""}
+                  onClick={() => setCartaoAtivo("todos")}
                 >
-                  {c.nome}
+                  Consolidado
                 </button>
               </li>
-            ))}
 
-            <li>
-              <button
-                onClick={() => {
-                  if (cartoes.length >= 3) {
-                    alert("Você já atingiu o limite de 3 cartões.");
-                    return;
-                  }
-                  setMostrarCartao(true);
+              {cartoes.map((c) => (
+                <li key={c.id}>
+                  <button
+                    className={cartaoAtivo === c.id ? "active" : ""}
+                    onClick={() => setCartaoAtivo(c.id)}
+                  >
+                    {c.nome}
+                  </button>
+                </li>
+              ))}
+
+              <li>
+                <button
+                  onClick={() => {
+                    if (cartoes.length >= 3) {
+                      alert("Você já atingiu o limite de 3 cartões.");
+                      return;
+                    }
+                    setMostrarCartao(true);
+                  }}
+                  className="icon-btn"
+                >
+                  <img src="/plus_v2.png" alt="Adicionar cartão" />
+                </button>
+              </li>
+
+              <li>
+                <button onClick={() => setMostrarRemover(true)} className="icon-btn">
+                  <img src="/moins_v2.png" alt="Remover cartão" />
+                </button>
+              </li>
+            </ul>
+          ) : (
+            // 🔥 MOBILE = SELECT
+            <div className="button-mm-yy">
+              <select
+                value={cartaoAtivo || ""}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setCartaoAtivo(value === "todos" ? "todos" : Number(value));
                 }}
-                className="icon-btn"
               >
-                <img src="/plus_v2.png" alt="Adicionar cartão" />
-              </button>
-            </li>
+                <option value="todos">Consolidado</option>
 
-            <li>
-              <button onClick={() => setMostrarRemover(true)} className="icon-btn">
-                <img src="/moins_v2.png" alt="Remover cartão" />
-              </button>
-            </li>
-          </ul>
-        </nav>
+                {cartoes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          </nav>
 
       </header>
 
