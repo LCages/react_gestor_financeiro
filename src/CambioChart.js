@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useCallback } from "react";
-import API_URL, { apiFetch } from "./config";
 
 import {
   LineChart,
