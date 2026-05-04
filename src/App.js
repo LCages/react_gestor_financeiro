@@ -9,7 +9,7 @@ import FinanceChart from "./FinanceChart";
 import { useMemo } from "react";
 import API_URL from "./config";
 import Auth from "./Auth";
-import { apiFetch } from "./apiFetch";
+import { apiFetch } from "./config";
 
 function App() {
   const [usuario, setUsuario] = useState(null);
