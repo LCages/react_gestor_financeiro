@@ -1,5 +1,5 @@
 import { useState } from "react";
-import API_URL from "./config";
+import API_URL, { apiFetch } from "./config";
 
 function Auth({ onLogin }) {
   const [modoCadastro, setModoCadastro] = useState(false);
@@ -16,7 +16,7 @@ function Auth({ onLogin }) {
       : `${API_URL}/login`;
 
     try {
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -43,7 +43,7 @@ function Auth({ onLogin }) {
       }
 
       // 🔥 SE FOR CADASTRO → FAZ LOGIN AUTOMÁTICO
-      const loginRes = await fetch(`${API_URL}/login`, {
+      const loginRes = await apiFetch(`${API_URL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -96,27 +96,24 @@ function App() {
 
   // 🔥 carregar cartões
   const carregarCartoes = useCallback(async () => {
-    try {
-      const res = await apiFetch(`${API_URL}/cartoes`);
-      const data = await res.json();
+  try {
+    const res = await apiFetch(`${API_URL}/cartoes`);
+    const data = await res.json();
 
-      setCartoes(data || []);
+    // 🔥 proteção correta
+    const lista = Array.isArray(data) ? data : [];
+    setCartoes(lista);
 
-      if (data.length > 0) {
-        // 🔥 se for "todos", não muda
-        if (cartaoAtivo === "todos") return;
-
-        const existe = data.find(c => c.id === cartaoAtivo);
-
-        if (!existe) {
-          setCartaoAtivo(data[0].id);
-        }
-      }
-
-    } catch (error) {
-      console.error(error);
+    if (lista.length > 0) {
+      if (cartaoAtivo === "todos") return;
+      const existe = lista.find(c => c.id === cartaoAtivo);
+      if (!existe) setCartaoAtivo(lista[0].id);
     }
-  }, [cartaoAtivo]);
+  } catch (error) {
+    console.error(error);
+    setCartoes([]); // 🔥 garante array mesmo em erro de rede
+  }
+}, [cartaoAtivo]);
 
   function formatarData(dataISO) {
     if (!dataISO) return "";
@@ -342,12 +339,17 @@ function App() {
   }, [anosDisponiveis, anoSelecionado]);
 
   useEffect(() => {
-  async function carregarTaxas() {
+    async function carregarTaxas() {
     try {
-      const res = await apiFetch(
-        `${API_URL}/cambio?from=EUR&to=BRL,USD`
-      );
+      const hoje = new Date();
+      const passado = new Date();
+      passado.setDate(hoje.getDate() - 3); // últimos 3 dias bastam
 
+      const formatar = (d) => d.toISOString().split("T")[0];
+
+      const url = `https://api.frankfurter.dev/v1/${formatar(passado)}..${formatar(hoje)}?from=EUR&to=BRL,USD`;
+
+      const res = await fetch(url); // 🔥 direto
       const data = await res.json();
 
       const ultimaData = Object.keys(data.rates).pop();

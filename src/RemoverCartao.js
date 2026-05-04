@@ -1,5 +1,6 @@
 import { useState } from "react";
-import API_URL from "./config";
+import API_URL, { apiFetch } from "./config";
+
 
 function RemoverCartao({ cartoes, onClose, onDeleted }) {
   const [cartaoId, setCartaoId] = useState("");
@@ -13,7 +14,7 @@ function RemoverCartao({ cartoes, onClose, onDeleted }) {
     if (!window.confirm("Tem certeza que deseja excluir?")) return;
 
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `${API_URL}/cartoes/${cartaoId}`,
         { method: "DELETE" }
       );
