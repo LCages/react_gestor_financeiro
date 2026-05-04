@@ -35,17 +35,38 @@ function Auth({ onLogin }) {
         return;
       }
 
-      // 🔐 SALVAR TOKEN (AGORA SIM, no lugar certo)
+      // 🔐 LOGIN NORMAL
       if (data.token) {
         localStorage.setItem("token", data.token);
+        onLogin(data.usuario);
+        return;
       }
 
-      // 👤 salvar usuário no estado
-      onLogin(data.usuario);
+      // 🔥 SE FOR CADASTRO → FAZ LOGIN AUTOMÁTICO
+      const loginRes = await fetch(`${API_URL}/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          senha,
+        }),
+      });
+
+      const loginData = await loginRes.json();
+
+      if (!loginRes.ok) {
+        alert(loginData.error);
+        return;
+      }
+
+      localStorage.setItem("token", loginData.token);
+      onLogin(loginData.usuario);
 
     } catch (err) {
       console.error(err);
-      alert("Erro");
+      alert("Erro ao conectar com o servidor");
     }
   }
 
