@@ -13,9 +13,6 @@ function AddCartao({ onClose, onCreated }) {
     try {
       await apiFetch(`${API_URL}/cartoes`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           nome,
           cor,
