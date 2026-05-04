@@ -464,6 +464,32 @@ function App() {
                   </option>
                 ))}
               </select>
+
+              <ul>
+                <li>
+                  <button
+                    className="action-btn add"
+                    onClick={() => {
+                      if (cartoes.length >= 3) {
+                        alert("Você já atingiu o limite de 3 cartões.");
+                        return;
+                      }
+                      setMostrarCartao(true);
+                    }}
+                  >
+                    Adicionar
+                  </button>
+                </li>
+
+                <li>
+                  <button
+                    className="action-btn remove"
+                    onClick={() => setMostrarRemover(true)}
+                  >
+                    Remover
+                  </button>
+                </li>
+              </ul>
             </div>
           )}
           </nav>

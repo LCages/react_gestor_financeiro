@@ -102,15 +102,6 @@
   transform: scale(0.95);
 }
 
-/* variações */
-.action-btn.add {
-  border: 1px solid rgba(33,150,243,0.3);
-}
-
-.action-btn.remove {
-  border: 1px solid rgba(244,67,54,0.3);
-}
-
 .icon-btn {
   display: flex;
   align-items: center;
