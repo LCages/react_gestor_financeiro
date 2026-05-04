@@ -424,6 +424,7 @@ function App() {
 
               <li>
                 <button
+                  className="action-btn add"
                   onClick={() => {
                     if (cartoes.length >= 3) {
                       alert("Você já atingiu o limite de 3 cartões.");
@@ -431,15 +432,17 @@ function App() {
                     }
                     setMostrarCartao(true);
                   }}
-                  className="icon-btn"
                 >
-                  <img src="/plus_v2.png" alt="Adicionar cartão" />
+                  Adicionar
                 </button>
               </li>
 
               <li>
-                <button onClick={() => setMostrarRemover(true)} className="icon-btn">
-                  <img src="/moins_v2.png" alt="Remover cartão" />
+                <button
+                  className="action-btn remove"
+                  onClick={() => setMostrarRemover(true)}
+                >
+                  Remover
                 </button>
               </li>
             </ul>

@@ -70,6 +70,47 @@
   border: 1px solid rgba(0,0,0,0.15);
 }
 
+.action-btn {
+  height: clamp(30px, 4vw, 40px);
+  padding: 0 clamp(10px, 2vw, 16px);
+
+  border-radius: 30px;
+  border: none;
+
+  background: rgba(255,255,255,0.5);
+  backdrop-filter: blur(10px);
+
+  font-size: clamp(11px, 1.2vw, 14px);
+  font-weight: 600;
+  color: #333;
+
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* hover bonito */
+.action-btn:hover {
+  background: rgba(255,255,255,0.8);
+}
+
+/* clique */
+.action-btn:active {
+  transform: scale(0.95);
+}
+
+/* variações */
+.action-btn.add {
+  border: 1px solid rgba(33,150,243,0.3);
+}
+
+.action-btn.remove {
+  border: 1px solid rgba(244,67,54,0.3);
+}
+
 .icon-btn {
   display: flex;
   align-items: center;
