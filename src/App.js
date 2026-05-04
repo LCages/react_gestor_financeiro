@@ -8,8 +8,11 @@ import CambioChart from "./CambioChart";
 import FinanceChart from "./FinanceChart";
 import { useMemo } from "react";
 import API_URL from "./config";
+import Auth from "./Auth";
+import { apiFetch } from "./apiFetch";
 
 function App() {
+  const [usuario, setUsuario] = useState(null);
   const [semestre, setSemestre] = useState(1); // 1 = Jan-Jun | 2 = Jul-Dez
   const [dados, setDados] = useState([]);
   const [cartoes, setCartoes] = useState([]);
@@ -81,7 +84,7 @@ function App() {
         url += `?cartoes=${cartaoAtivo}`;
       }
 
-      const response = await fetch(url);
+      const response = await apiFetch(url);
       const data = await response.json();
 
       setDados(data.dados || []);
@@ -94,7 +97,7 @@ function App() {
   // 🔥 carregar cartões
   const carregarCartoes = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/cartoes`);
+      const res = await apiFetch(`${API_URL}/cartoes`);
       const data = await res.json();
 
       setCartoes(data || []);
@@ -152,7 +155,7 @@ function App() {
         method = "PUT";
       }
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
@@ -341,7 +344,7 @@ function App() {
   useEffect(() => {
   async function carregarTaxas() {
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `${API_URL}/cambio?from=EUR&to=BRL,USD`
       );
 
@@ -364,6 +367,9 @@ function App() {
   carregarTaxas();
   }, []);
 
+  if (!usuario) {
+    return <Auth onLogin={setUsuario} />;
+  }
   
   return (
     <div>
@@ -794,7 +800,7 @@ function App() {
 
                   await Promise.all(
                     selecionados.map(id =>
-                      fetch(`${API_URL}/lancamentos/${id}`, {
+                      apiFetch(`${API_URL}/lancamentos/${id}`, {
                         method: "DELETE"
                       })
                     )
