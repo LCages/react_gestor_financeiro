@@ -591,7 +591,7 @@ function App() {
                     className={!mostrarCambio ? "active" : ""}
                     onClick={() => setMostrarCambio(false)}
                   >
-                    Relatório Mensal
+                    Mensal
                   </button>
 
                   <button
