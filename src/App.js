@@ -59,6 +59,15 @@ function App() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // 🔥 LOGOUT
+  function handleLogout() {
+    localStorage.removeItem("token");
+    setUsuario(null);
+    setDados([]);
+    setCartoes([]);
+    setCartaoAtivo(null);
+  }
+
   function normalizarMoeda(moeda) {
     if (moeda === "R$") return "BRL";
     if (moeda === "$") return "USD";
@@ -500,7 +509,14 @@ function App() {
               </ul>
             </div>
           )}
-          </nav>
+        </nav>
+
+        {/* 🔥 DIREITA (logout) */}
+        <div className="header-right">
+          <button className="btn-logout" onClick={handleLogout}>
+            Sair
+          </button>
+        </div>
 
       </header>
 
