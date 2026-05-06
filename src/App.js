@@ -747,49 +747,57 @@ function App() {
                 </thead>
  
                 <tbody>
-                  {dadosFiltrados.map((item) => (
-                    <tr
-                      key={item.id}
-                      className={selecionados.includes(item.id) ? "selecionado" : ""}
-                    >
-                      {modoSelecao && (
-                        <td>
-                          <input
-                            type="checkbox"
-                            checked={selecionados.includes(item.id)}
-                            onChange={(e) =>
-                              setSelecionados((prev) =>
-                                e.target.checked
-                                  ? [...prev, item.id]
-                                  : prev.filter((id) => id !== item.id)
-                              )
-                            }
-                          />
-                        </td>
-                      )}
-                      <td>{formatarData(item.data)}</td>
-                      <td>{item.descricao}</td>
-                      <td>{item.categoria}</td>
-                      <td>{formatarMoeda(Number(item.valorConvertido), moedaGlobal)}</td>
-                      <td>
-                        <span
-                          className="badge"
-                          style={{
-                            background:
-                              item.status === "receita"
-                                ? "rgba(76,175,80,0.18)"
-                                : "rgba(244,67,54,0.18)",
-                            color:
-                              item.status === "receita"
-                                ? "var(--color-receita)"
-                                : "var(--color-despesa)",
-                          }}
-                        >
-                          {item.status === "receita" ? "Receita" : "Despesa"}
-                        </span>
+                  {dadosFiltrados.length === 0 ? (
+                    <tr>
+                      <td colSpan={modoSelecao ? 6 : 5} style={{ textAlign: "center", padding: "20px" }}>
+                        Nenhuma informação encontrada...
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    dadosFiltrados.map((item) => (
+                      <tr
+                        key={item.id}
+                        className={selecionados.includes(item.id) ? "selecionado" : ""}
+                      >
+                        {modoSelecao && (
+                          <td>
+                            <input
+                              type="checkbox"
+                              checked={selecionados.includes(item.id)}
+                              onChange={(e) =>
+                                setSelecionados((prev) =>
+                                  e.target.checked
+                                    ? [...prev, item.id]
+                                    : prev.filter((id) => id !== item.id)
+                                )
+                              }
+                            />
+                          </td>
+                        )}
+                        <td>{formatarData(item.data)}</td>
+                        <td>{item.descricao}</td>
+                        <td>{item.categoria}</td>
+                        <td>{formatarMoeda(Number(item.valorConvertido), moedaGlobal)}</td>
+                        <td>
+                          <span
+                            className="badge"
+                            style={{
+                              background:
+                                item.status === "receita"
+                                  ? "rgba(76,175,80,0.18)"
+                                  : "rgba(244,67,54,0.18)",
+                              color:
+                                item.status === "receita"
+                                  ? "var(--color-receita)"
+                                  : "var(--color-despesa)",
+                            }}
+                          >
+                            {item.status === "receita" ? "Receita" : "Despesa"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
