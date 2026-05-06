@@ -10,8 +10,10 @@ import { useMemo } from "react";
 import API_URL from "./config";
 import Auth from "./Auth";
 import { apiFetch } from "./config";
+import LoadingOverlay from "./LoadingOverlay";
 
 function App() {
+  const [loadingInicial, setLoadingInicial] = useState(true);
   const [usuario, setUsuario] = useState(null);
   const [semestre, setSemestre] = useState(1); // 1 = Jan-Jun | 2 = Jul-Dez
   const [dados, setDados] = useState([]);
@@ -49,6 +51,27 @@ function App() {
   const [taxas, setTaxas] = useState({});
 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 600);
+
+  useEffect(() => {
+    if (!usuario) return;
+
+    async function carregarTudo() {
+      const tempoMinimo = new Promise((resolve) =>
+        setTimeout(resolve, 20000) // 20 segundos
+      );
+
+      const carregarAPI = Promise.all([
+        carregarCartoes(),
+        carregarDados()
+      ]);
+
+      await Promise.all([tempoMinimo, carregarAPI]);
+
+      setLoadingInicial(false);
+    }
+
+    carregarTudo();
+  }, [usuario]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -383,14 +406,149 @@ function App() {
   }
   
   return (
-    <div>
+    <>
+      {loadingInicial && (
+        <LoadingOverlay nome={usuario?.nome} />
+      )}
+      <div>
 
-      {/* HEADER */}
-      <header className="header">
+        {/* HEADER */}
+        <header className="header">
 
-        {/* 🔥 ESQUERDA (moeda) */}
-        {!isMobile && (
-          <div className="header-left">
+          {/* 🔥 ESQUERDA (moeda) */}
+          {!isMobile && (
+            <div className="header-left">
+              <div className="currency-buttons">
+                <button
+                  className={moedaGlobal === "BRL" ? "active" : ""}
+                  onClick={() => setMoedaGlobal("BRL")}
+                >
+                  Real
+                </button>
+
+                <button
+                  className={moedaGlobal === "USD" ? "active" : ""}
+                  onClick={() => setMoedaGlobal("USD")}
+                >
+                  Dollar
+                </button>
+
+                <button
+                  className={moedaGlobal === "EUR" ? "active" : ""}
+                  onClick={() => setMoedaGlobal("EUR")}
+                >
+                  Euro
+                </button>
+              </div>
+            </div>
+          )}
+
+          <nav className="header-center">
+            {!isMobile ? (
+              <ul>
+                <li>
+                  <button
+                    className={cartaoAtivo === "todos" ? "active" : ""}
+                    onClick={() => setCartaoAtivo("todos")}
+                  >
+                    Consolidado
+                  </button>
+                </li>
+
+                {cartoes.map((c) => (
+                  <li key={c.id}>
+                    <button
+                      className={cartaoAtivo === c.id ? "active" : ""}
+                      onClick={() => setCartaoAtivo(c.id)}
+                    >
+                      {c.nome}
+                    </button>
+                  </li>
+                ))}
+
+                <li>
+                  <button
+                    className="action-btn add"
+                    onClick={() => {
+                      if (cartoes.length >= 3) {
+                        alert("Você já atingiu o limite de 3 cartões.");
+                        return;
+                      }
+                      setMostrarCartao(true);
+                    }}
+                  >
+                    Adicionar
+                  </button>
+                </li>
+
+                <li>
+                  <button
+                    className="action-btn remove"
+                    onClick={() => setMostrarRemover(true)}
+                  >
+                    Remover
+                  </button>
+                </li>
+              </ul>
+            ) : (
+              // 🔥 MOBILE = SELECT
+              <div className="button-mm-yy">
+                <select
+                  value={cartaoAtivo || ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setCartaoAtivo(value === "todos" ? "todos" : Number(value));
+                  }}
+                >
+                  <option value="todos">Consolidado</option>
+
+                  {cartoes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome}
+                    </option>
+                  ))}
+                </select>
+
+                <ul>
+                  <li>
+                    <button
+                      className="action-btn add"
+                      onClick={() => {
+                        if (cartoes.length >= 3) {
+                          alert("Você já atingiu o limite de 3 cartões.");
+                          return;
+                        }
+                        setMostrarCartao(true);
+                      }}
+                    >
+                      Adicionar
+                    </button>
+                  </li>
+
+                  <li>
+                    <button
+                      className="action-btn remove"
+                      onClick={() => setMostrarRemover(true)}
+                    >
+                      Remover
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            )}
+          </nav>
+
+          {/* 🔥 DIREITA (logout) */}
+          <div className="header-right">
+            <button className="btn-logout" onClick={handleLogout}>
+              Sair
+            </button>
+          </div>
+
+        </header>
+
+        {isMobile && (
+          <div className="mobile-currency-wrapper">
             <div className="currency-buttons">
               <button
                 className={moedaGlobal === "BRL" ? "active" : ""}
@@ -416,596 +574,467 @@ function App() {
           </div>
         )}
 
-        <nav className="header-center">
-          {!isMobile ? (
-            <ul>
-              <li>
-                <button
-                  className={cartaoAtivo === "todos" ? "active" : ""}
-                  onClick={() => setCartaoAtivo("todos")}
-                >
-                  Consolidado
-                </button>
-              </li>
+        <div className="main-box">
 
-              {cartoes.map((c) => (
-                <li key={c.id}>
-                  <button
-                    className={cartaoAtivo === c.id ? "active" : ""}
-                    onClick={() => setCartaoAtivo(c.id)}
-                  >
-                    {c.nome}
-                  </button>
-                </li>
-              ))}
+          <div className="layout">
 
-              <li>
-                <button
-                  className="action-btn add"
-                  onClick={() => {
-                    if (cartoes.length >= 3) {
-                      alert("Você já atingiu o limite de 3 cartões.");
-                      return;
-                    }
-                    setMostrarCartao(true);
-                  }}
-                >
-                  Adicionar
-                </button>
-              </li>
+            {/* ESQUERDA (25%) */}
+            <div className="left">
 
-              <li>
-                <button
-                  className="action-btn remove"
-                  onClick={() => setMostrarRemover(true)}
-                >
-                  Remover
-                </button>
-              </li>
-            </ul>
-          ) : (
-            // 🔥 MOBILE = SELECT
-            <div className="button-mm-yy">
-              <select
-                value={cartaoAtivo || ""}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setCartaoAtivo(value === "todos" ? "todos" : Number(value));
-                }}
-              >
-                <option value="todos">Consolidado</option>
+              <div className="box saldo">
+                <strong>Saldo</strong>
+                <span>
+                  {formatarMoeda(saldoTotal, simboloMoeda)}
+                </span>
+              </div>
 
-                {cartoes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nome}
-                  </option>
-                ))}
-              </select>
+              <div className="box receita">
+                <strong>Receitas</strong>
+                <span>
+                  {formatarMoeda(receitasConvertidas, simboloMoeda)}
+                </span>
+              </div>
 
-              <ul>
-                <li>
-                  <button
-                    className="action-btn add"
-                    onClick={() => {
-                      if (cartoes.length >= 3) {
-                        alert("Você já atingiu o limite de 3 cartões.");
-                        return;
-                      }
-                      setMostrarCartao(true);
-                    }}
-                  >
-                    Adicionar
-                  </button>
-                </li>
+              <div className="box despesa">
+                <strong>Despesas</strong>
+                <span>
+                  {formatarMoeda(Math.abs(despesasConvertidas), simboloMoeda)}
+                </span>
+              </div>
 
-                <li>
-                  <button
-                    className="action-btn remove"
-                    onClick={() => setMostrarRemover(true)}
-                  >
-                    Remover
-                  </button>
-                </li>
-              </ul>
-            </div>
-          )}
-        </nav>
-
-        {/* 🔥 DIREITA (logout) */}
-        <div className="header-right">
-          <button className="btn-logout" onClick={handleLogout}>
-            Sair
-          </button>
-        </div>
-
-      </header>
-
-      {isMobile && (
-        <div className="mobile-currency-wrapper">
-          <div className="currency-buttons">
-            <button
-              className={moedaGlobal === "BRL" ? "active" : ""}
-              onClick={() => setMoedaGlobal("BRL")}
-            >
-              Real
-            </button>
-
-            <button
-              className={moedaGlobal === "USD" ? "active" : ""}
-              onClick={() => setMoedaGlobal("USD")}
-            >
-              Dollar
-            </button>
-
-            <button
-              className={moedaGlobal === "EUR" ? "active" : ""}
-              onClick={() => setMoedaGlobal("EUR")}
-            >
-              Euro
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="main-box">
-
-        <div className="layout">
-
-          {/* ESQUERDA (25%) */}
-          <div className="left">
-
-            <div className="box saldo">
-              <strong>Saldo</strong>
-              <span>
-                {formatarMoeda(saldoTotal, simboloMoeda)}
-              </span>
             </div>
 
-            <div className="box receita">
-              <strong>Receitas</strong>
-              <span>
-                {formatarMoeda(receitasConvertidas, simboloMoeda)}
-              </span>
-            </div>
+            {/* DIREITA (75%) */}
+            <div className="right">
 
-            <div className="box despesa">
-              <strong>Despesas</strong>
-              <span>
-                {formatarMoeda(Math.abs(despesasConvertidas), simboloMoeda)}
-              </span>
-            </div>
+              {/* PARTE DE CIMA */}
+              <div className="top">
 
-          </div>
+                <div className="top-bar">
+    
+                  {/* BOTÕES */}
+                  <div className="actions-buttons">
+                    <button
+                      className={!mostrarCambio ? "active" : ""}
+                      onClick={() => setMostrarCambio(false)}
+                    >
+                      Mensal
+                    </button>
 
-          {/* DIREITA (75%) */}
-          <div className="right">
+                    <button
+                      className={mostrarCambio ? "active" : ""}
+                      onClick={() => setMostrarCambio(true)}
+                    >
+                      Câmbio
+                    </button>
+                  </div>
 
-            {/* PARTE DE CIMA */}
-            <div className="top">
+                  {/* ANO */}
+                    {!mostrarCambio && (
+                      <div className="button-mm-yy">
+                        <select
+                          value={anoSelecionado}
+                          onChange={(e) => setAnoSelecionado(Number(e.target.value))}
+                        >
+                          {anosDisponiveis.map((ano) => (
+                            <option key={ano} value={ano}>
+                              {ano}
+                            </option>
+                          ))}
+                        </select>
 
-              <div className="top-bar">
-  
-                {/* BOTÕES */}
-                <div className="actions-buttons">
-                  <button
-                    className={!mostrarCambio ? "active" : ""}
-                    onClick={() => setMostrarCambio(false)}
-                  >
-                    Mensal
-                  </button>
+                        {/* 🔥 NOVO SELECT (só mobile) */}
+                        {isMobile && !mostrarCambio && (
+                          <select
+                            value={semestre}
+                            onChange={(e) => setSemestre(Number(e.target.value))}
+                          >
+                            <option value={1}>Jan - Jun</option>
+                            <option value={2}>Jul - Dez</option>
+                          </select>
+                        )}
+                      </div>
+                    )}
 
-                  <button
-                    className={mostrarCambio ? "active" : ""}
-                    onClick={() => setMostrarCambio(true)}
-                  >
-                    Câmbio
-                  </button>
                 </div>
 
-                {/* ANO */}
-                  {!mostrarCambio && (
-                    <div className="button-mm-yy">
-                      <select
-                        value={anoSelecionado}
-                        onChange={(e) => setAnoSelecionado(Number(e.target.value))}
-                      >
-                        {anosDisponiveis.map((ano) => (
-                          <option key={ano} value={ano}>
-                            {ano}
-                          </option>
-                        ))}
-                      </select>
-
-                      {/* 🔥 NOVO SELECT (só mobile) */}
-                      {isMobile && !mostrarCambio && (
-                        <select
-                          value={semestre}
-                          onChange={(e) => setSemestre(Number(e.target.value))}
-                        >
-                          <option value={1}>Jan - Jun</option>
-                          <option value={2}>Jul - Dez</option>
-                        </select>
-                      )}
-                    </div>
-                  )}
+                {/* CONTEÚDO */}
+                {mostrarCambio ? (
+                  <CambioChart />
+                ) : (
+                  <FinanceChart 
+                    dados={dadosDoAno} 
+                    moeda={moedaGlobal}
+                    isMobile={isMobile}
+                    semestre={semestre}
+                  />
+                )}
 
               </div>
 
-              {/* CONTEÚDO */}
-              {mostrarCambio ? (
-                <CambioChart />
-              ) : (
-                <FinanceChart 
-                  dados={dadosDoAno} 
-                  moeda={moedaGlobal}
-                  isMobile={isMobile}
-                  semestre={semestre}
-                />
-              )}
-
             </div>
-
-          </div>
-        
-        </div>
-
-
-        <div className="main-tab-categorias">
-
-          <div className="button-mm-yy">
-
-              {/* ANO */}
-              <select
-                value={anoSelecionado}
-                onChange={(e) => setAnoSelecionado(Number(e.target.value))}
-              >
-                {anosDisponiveis.map((ano) => (
-                  <option key={ano} value={ano}>
-                    {ano}
-                  </option>
-                ))}
-              </select>
-
-              {/* MÊS */}
-              <select
-                value={mesSelecionado}
-                onChange={(e) => {
-                  const novoMes = Number(e.target.value);
-                  setMesSelecionado(novoMes);
-                }}
-              >
-                <option value={1}>Janeiro</option>
-                <option value={2}>Fevereiro</option>
-                <option value={3}>Março</option>
-                <option value={4}>Abril</option>
-                <option value={5}>Maio</option>
-                <option value={6}>Junho</option>
-                <option value={7}>Julho</option>
-                <option value={8}>Agosto</option>
-                <option value={9}>Setembro</option>
-                <option value={10}>Outubro</option>
-                <option value={11}>Novembro</option>
-                <option value={12}>Dezembro</option>
-              </select>
-
-            </div>
-
-            <table className="tabela-categorias">
-              <thead>
-                <tr>
-                  <th>Categoria</th>
-                  <th>Total</th>
-                  {!isMobile && <th>Categoria</th>}
-                  {!isMobile && <th>Total</th>}
-                </tr>
-              </thead>
-
-              <tbody>
-                {isMobile ? (
-                  Object.entries(resumoCategorias).map(([categoria, valor], index) => (
-                    <tr key={index}>
-                      <td>{categoria}</td>
-                      <td style={{
-                        color: valor >= 0 ? "green" : "red",
-                        fontWeight: "bold"
-                      }}>
-                        {formatarMoeda(Math.abs(valor), simboloMoeda)}
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  Object.entries(resumoCategorias)
-                    .reduce((acc, curr, i, arr) => {
-                      if (i % 2 === 0) {
-                        acc.push([curr, arr[i + 1]]);
-                      }
-                      return acc;
-                    }, [])
-                    .map((par, index) => (
-                      <tr key={index}>
-                        <td>{par[0][0]}</td>
-                        <td style={{
-                          color: par[0][1] >= 0 ? "green" : "red",
-                          fontWeight: "bold"
-                        }}>
-                          {formatarMoeda(Math.abs(par[0][1]), simboloMoeda)}
-                        </td>
-
-                        {par[1] ? (
-                          <>
-                            <td>{par[1][0]}</td>
-                            <td style={{
-                              color: par[1][1] >= 0 ? "green" : "red",
-                              fontWeight: "bold"
-                            }}>
-                              {formatarMoeda(Math.abs(par[1][1]), simboloMoeda)}
-                            </td>
-                          </>
-                        ) : (
-                          <>
-                            <td></td>
-                            <td></td>
-                          </>
-                        )}
-                      </tr>
-                    ))
-                )}
-              </tbody>
-            </table>
-
-        </div>
-
-
-        <div className="box-tabela-search">
-          <div className="dvSearch">
-            <input
-              type="text"
-              className="form-control"
-              placeholder=" Buscar..."
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-            />
-
-            <div className="actions-buttons">
-              <button
-                className="btn btn-primary"
-                onClick={() => setMostrarForm(!mostrarForm)}
-              >
-                {mostrarForm ? "Fechar" : "Adicionar"}
-              </button>
-
-              <button
-                className={`btn ${modoSelecao ? "btn-warning" : "btn-secondary"}`}
-                onClick={() => {
-                  setModoSelecao(!modoSelecao);
-                  setSelecionados([]);
-                }}
-              >
-                {modoSelecao ? "Cancelar seleção" : "Selecionar"}
-              </button>
-
-              <button
-                className={`btn-edit ${modoEdicao ? "active" : ""}`}
-                disabled={selecionados.length !== 1}
-                onClick={() => {
-                  const id = selecionados[0];
-                  const item = dados.find(i => i.id === id);
-
-                  if (!item) return;
-
-                  setModoEdicao(true);
-                  setIdEditando(id);
-
-                  // 🔥 preenche form
-                  setData(item.data?.split("T")[0] || "");
-                  setDescricao(item.descricao);
-                  setValor(item.valor);
-                  setCategoria(item.categoria);
-                  setStatus(item.status);
-                  setCartoesId(item.cartoesId);
-
-                  setMostrarForm(true);
-                }}
-              >
-                Editar
-              </button>
-
-              <button
-                className="btn-delete"
-                disabled={selecionados.length === 0}
-                onClick={async () => {
-                  if (!window.confirm("Excluir selecionados?")) return;
-
-                  await Promise.all(
-                    selecionados.map(id =>
-                      apiFetch(`${API_URL}/lancamentos/${id}`, {
-                        method: "DELETE"
-                      })
-                    )
-                  );
-
-                  setSelecionados([]);
-                  setModoSelecao(false);
-                  carregarDados();
-                }}
-              >
-                Excluir
-              </button>
-            </div>
+          
           </div>
 
-          {mostrarForm && (
-            <form onSubmit={cadastrar} className="card p-3 mt-3">
 
-              <input
-                type="date"
-                className="form-control mb-2"
-                value={data}
-                onChange={(e) => setData(e.target.value)}
-                required
-              />
+          <div className="main-tab-categorias">
 
-              <select
-                className="form-control mb-2"
-                value={categoria}
-                onChange={(e) => setCategoria(e.target.value)}
-                required
-              >
-                <option value="">Categoria</option>
-                <option>Salário</option>
-                <option>Moradia</option>
-                <option>Mercado</option>
-                <option>Restaurante</option>
-                <option>Assinaturas</option>
-                <option>Passeio</option>
-                <option>Saúde</option>
-                <option>Transporte</option>
-                <option>Compras</option>
-                <option>Outros</option>
-              </select>
+            <div className="button-mm-yy">
 
-              <input
-                type="text"
-                placeholder="Descrição"
-                className="form-control mb-2"
-                value={descricao}
-                onChange={(e) => setDescricao(e.target.value)}
-                required
-              />
+                {/* ANO */}
+                <select
+                  value={anoSelecionado}
+                  onChange={(e) => setAnoSelecionado(Number(e.target.value))}
+                >
+                  {anosDisponiveis.map((ano) => (
+                    <option key={ano} value={ano}>
+                      {ano}
+                    </option>
+                  ))}
+                </select>
 
-              <input
-                type="number"
-                placeholder="Valor"
-                step="0.01"
-                className="form-control mb-2"
-                value={valor}
-                onChange={(e) => setValor(e.target.value)}
-                required
-              />
-
-              <select
-                className="form-control mb-2"
-                value={cartoesId}
-                onChange={(e) => setCartoesId(e.target.value)}
-                required
-              >
-                <option value="">Cartão</option>
-                {cartoes.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nome}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                className="form-control mb-2"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                <option value="receita">Receita</option>
-                <option value="despesa">Despesa</option>
-              </select>
-
-              <button className="btn btn-success">
-                {modoEdicao ? "Salvar Alterações" : "Cadastrar"}
-              </button>
-
-              {modoEdicao && (
-                <button
-                  type="button"
-                  className="btn btn-secondary mt-2"
-                  onClick={() => {
-                    setModoEdicao(false);
-                    setIdEditando(null);
-                    setMostrarForm(false);
+                {/* MÊS */}
+                <select
+                  value={mesSelecionado}
+                  onChange={(e) => {
+                    const novoMes = Number(e.target.value);
+                    setMesSelecionado(novoMes);
                   }}
                 >
-                  Cancelar edição
-                </button>
-              )}
-            </form>
-          )}
+                  <option value={1}>Janeiro</option>
+                  <option value={2}>Fevereiro</option>
+                  <option value={3}>Março</option>
+                  <option value={4}>Abril</option>
+                  <option value={5}>Maio</option>
+                  <option value={6}>Junho</option>
+                  <option value={7}>Julho</option>
+                  <option value={8}>Agosto</option>
+                  <option value={9}>Setembro</option>
+                  <option value={10}>Outubro</option>
+                  <option value={11}>Novembro</option>
+                  <option value={12}>Dezembro</option>
+                </select>
 
-          <div className="table-wrapper">
-            <table className="dvTabela">
-              <thead>
-                <tr>
-                  {modoSelecao && <th></th>}
-                  <th>Data</th>
-                  <th>Descrição</th>
-                  <th>Categoria</th>
-                  <th>Valor</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
+              </div>
 
-              <tbody>
-                {dadosFiltrados.map((item) => (
-                  <tr key={item.id} style={{
-                    backgroundColor: selecionados.includes(item.id)
-                      ? "#ffe5e5"
-                      : "transparent"
-                  }}>
-                    {modoSelecao && (
-                      <td>
-                        <input
-                          type="checkbox"
-                          checked={selecionados.includes(item.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelecionados([...selecionados, item.id]);
-                            } else {
-                              setSelecionados(selecionados.filter(id => id !== item.id));
-                            }
-                          }}
-                        />
-                      </td>
-                    )}
-                    <td>{formatarData(item.data)}</td>
-                    <td>{item.descricao}</td>
-                    <td>{item.categoria}</td>
-                    <td>
-                      {formatarMoeda(
-                        Number(item.valorConvertido),
-                        simboloMoeda
-                      )}
-                    </td>
-
-                    <td>
-                      {item.status === "receita" ? (
-                        <span className="badge bg-success"> </span>
-                      ) : (
-                        <span className="badge bg-danger"> </span>
-                      )}
-                    </td>
+              <table className="tabela-categorias">
+                <thead>
+                  <tr>
+                    <th>Categoria</th>
+                    <th>Total</th>
+                    {!isMobile && <th>Categoria</th>}
+                    {!isMobile && <th>Total</th>}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+
+                <tbody>
+                  {isMobile ? (
+                    Object.entries(resumoCategorias).map(([categoria, valor], index) => (
+                      <tr key={index}>
+                        <td>{categoria}</td>
+                        <td style={{
+                          color: valor >= 0 ? "green" : "red",
+                          fontWeight: "bold"
+                        }}>
+                          {formatarMoeda(Math.abs(valor), simboloMoeda)}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    Object.entries(resumoCategorias)
+                      .reduce((acc, curr, i, arr) => {
+                        if (i % 2 === 0) {
+                          acc.push([curr, arr[i + 1]]);
+                        }
+                        return acc;
+                      }, [])
+                      .map((par, index) => (
+                        <tr key={index}>
+                          <td>{par[0][0]}</td>
+                          <td style={{
+                            color: par[0][1] >= 0 ? "green" : "red",
+                            fontWeight: "bold"
+                          }}>
+                            {formatarMoeda(Math.abs(par[0][1]), simboloMoeda)}
+                          </td>
+
+                          {par[1] ? (
+                            <>
+                              <td>{par[1][0]}</td>
+                              <td style={{
+                                color: par[1][1] >= 0 ? "green" : "red",
+                                fontWeight: "bold"
+                              }}>
+                                {formatarMoeda(Math.abs(par[1][1]), simboloMoeda)}
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td></td>
+                              <td></td>
+                            </>
+                          )}
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
+
+          </div>
+
+
+          <div className="box-tabela-search">
+            <div className="dvSearch">
+              <input
+                type="text"
+                className="form-control"
+                placeholder=" Buscar..."
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+              />
+
+              <div className="actions-buttons">
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setMostrarForm(!mostrarForm)}
+                >
+                  {mostrarForm ? "Fechar" : "Adicionar"}
+                </button>
+
+                <button
+                  className={`btn ${modoSelecao ? "btn-warning" : "btn-secondary"}`}
+                  onClick={() => {
+                    setModoSelecao(!modoSelecao);
+                    setSelecionados([]);
+                  }}
+                >
+                  {modoSelecao ? "Cancelar seleção" : "Selecionar"}
+                </button>
+
+                <button
+                  className={`btn-edit ${modoEdicao ? "active" : ""}`}
+                  disabled={selecionados.length !== 1}
+                  onClick={() => {
+                    const id = selecionados[0];
+                    const item = dados.find(i => i.id === id);
+
+                    if (!item) return;
+
+                    setModoEdicao(true);
+                    setIdEditando(id);
+
+                    // 🔥 preenche form
+                    setData(item.data?.split("T")[0] || "");
+                    setDescricao(item.descricao);
+                    setValor(item.valor);
+                    setCategoria(item.categoria);
+                    setStatus(item.status);
+                    setCartoesId(item.cartoesId);
+
+                    setMostrarForm(true);
+                  }}
+                >
+                  Editar
+                </button>
+
+                <button
+                  className="btn-delete"
+                  disabled={selecionados.length === 0}
+                  onClick={async () => {
+                    if (!window.confirm("Excluir selecionados?")) return;
+
+                    await Promise.all(
+                      selecionados.map(id =>
+                        apiFetch(`${API_URL}/lancamentos/${id}`, {
+                          method: "DELETE"
+                        })
+                      )
+                    );
+
+                    setSelecionados([]);
+                    setModoSelecao(false);
+                    carregarDados();
+                  }}
+                >
+                  Excluir
+                </button>
+              </div>
+            </div>
+
+            {mostrarForm && (
+              <form onSubmit={cadastrar} className="card p-3 mt-3">
+
+                <input
+                  type="date"
+                  className="form-control mb-2"
+                  value={data}
+                  onChange={(e) => setData(e.target.value)}
+                  required
+                />
+
+                <select
+                  className="form-control mb-2"
+                  value={categoria}
+                  onChange={(e) => setCategoria(e.target.value)}
+                  required
+                >
+                  <option value="">Categoria</option>
+                  <option>Salário</option>
+                  <option>Moradia</option>
+                  <option>Mercado</option>
+                  <option>Restaurante</option>
+                  <option>Assinaturas</option>
+                  <option>Passeio</option>
+                  <option>Saúde</option>
+                  <option>Transporte</option>
+                  <option>Compras</option>
+                  <option>Outros</option>
+                </select>
+
+                <input
+                  type="text"
+                  placeholder="Descrição"
+                  className="form-control mb-2"
+                  value={descricao}
+                  onChange={(e) => setDescricao(e.target.value)}
+                  required
+                />
+
+                <input
+                  type="number"
+                  placeholder="Valor"
+                  step="0.01"
+                  className="form-control mb-2"
+                  value={valor}
+                  onChange={(e) => setValor(e.target.value)}
+                  required
+                />
+
+                <select
+                  className="form-control mb-2"
+                  value={cartoesId}
+                  onChange={(e) => setCartoesId(e.target.value)}
+                  required
+                >
+                  <option value="">Cartão</option>
+                  {cartoes.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome}
+                    </option>
+                  ))}
+                </select>
+
+                <select
+                  className="form-control mb-2"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                >
+                  <option value="receita">Receita</option>
+                  <option value="despesa">Despesa</option>
+                </select>
+
+                <button className="btn btn-success">
+                  {modoEdicao ? "Salvar Alterações" : "Cadastrar"}
+                </button>
+
+                {modoEdicao && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary mt-2"
+                    onClick={() => {
+                      setModoEdicao(false);
+                      setIdEditando(null);
+                      setMostrarForm(false);
+                    }}
+                  >
+                    Cancelar edição
+                  </button>
+                )}
+              </form>
+            )}
+
+            <div className="table-wrapper">
+              <table className="dvTabela">
+                <thead>
+                  <tr>
+                    {modoSelecao && <th></th>}
+                    <th>Data</th>
+                    <th>Descrição</th>
+                    <th>Categoria</th>
+                    <th>Valor</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {dadosFiltrados.map((item) => (
+                    <tr key={item.id} style={{
+                      backgroundColor: selecionados.includes(item.id)
+                        ? "#ffe5e5"
+                        : "transparent"
+                    }}>
+                      {modoSelecao && (
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selecionados.includes(item.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelecionados([...selecionados, item.id]);
+                              } else {
+                                setSelecionados(selecionados.filter(id => id !== item.id));
+                              }
+                            }}
+                          />
+                        </td>
+                      )}
+                      <td>{formatarData(item.data)}</td>
+                      <td>{item.descricao}</td>
+                      <td>{item.categoria}</td>
+                      <td>
+                        {formatarMoeda(
+                          Number(item.valorConvertido),
+                          simboloMoeda
+                        )}
+                      </td>
+
+                      <td>
+                        {item.status === "receita" ? (
+                          <span className="badge bg-success"> </span>
+                        ) : (
+                          <span className="badge bg-danger"> </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
+
+      {mostrarCartao && (
+        <AddCartao
+          onClose={() => setMostrarCartao(false)}
+          onCreated={carregarCartoes}
+        />
+      )}
+
+      {mostrarRemover && (
+        <RemoverCartao
+          onClose={() => setMostrarRemover(false)}
+          cartoes={cartoes}
+          onDeleted={() => {
+            carregarCartoes();
+            carregarDados();
+          }}
+        />
+      )}
+
       </div>
-
-    {mostrarCartao && (
-      <AddCartao
-        onClose={() => setMostrarCartao(false)}
-        onCreated={carregarCartoes}
-      />
-    )}
-
-    {mostrarRemover && (
-      <RemoverCartao
-        onClose={() => setMostrarRemover(false)}
-        cartoes={cartoes}
-        onDeleted={() => {
-          carregarCartoes();
-          carregarDados();
-        }}
-      />
-    )}
-
-    </div>
+    
+    </>
 
   );
 }
