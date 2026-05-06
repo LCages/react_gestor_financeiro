@@ -53,27 +53,6 @@ function App() {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 600);
 
   useEffect(() => {
-    if (!usuario) return;
-
-    async function carregarTudo() {
-      const tempoMinimo = new Promise((resolve) =>
-        setTimeout(resolve, 20000)
-      );
-
-      const carregarAPI = Promise.all([
-        carregarCartoes(),
-        carregarDados()
-      ]);
-
-      await Promise.all([tempoMinimo, carregarAPI]);
-
-      setLoadingInicial(false);
-    }
-
-    carregarTudo();
-  }, [usuario, carregarCartoes, carregarDados]);
-
-  useEffect(() => {
     const handleResize = () => {
       setIsMobile(window.innerWidth <= 600);
     };
@@ -128,25 +107,47 @@ function App() {
 
   // 🔥 carregar cartões
   const carregarCartoes = useCallback(async () => {
-  try {
-    const res = await apiFetch(`${API_URL}/cartoes`);
-    const data = await res.json();
+    try {
+      const res = await apiFetch(`${API_URL}/cartoes`);
+      const data = await res.json();
 
-    // 🔥 proteção correta
-    const lista = Array.isArray(data) ? data : [];
-    setCartoes(lista);
+      // 🔥 proteção correta
+      const lista = Array.isArray(data) ? data : [];
+      setCartoes(lista);
 
-    if (lista.length > 0) {
-      if (cartaoAtivo === "todos") return;
-      const existe = lista.find(c => c.id === cartaoAtivo);
-      if (!existe) setCartaoAtivo(lista[0].id);
+      if (lista.length > 0) {
+        if (cartaoAtivo === "todos") return;
+        const existe = lista.find(c => c.id === cartaoAtivo);
+        if (!existe) setCartaoAtivo(lista[0].id);
+      }
+    } catch (error) {
+      console.error(error);
+      setCartoes([]); // 🔥 garante array mesmo em erro de rede
     }
-  } catch (error) {
-    console.error(error);
-    setCartoes([]); // 🔥 garante array mesmo em erro de rede
-  }
-}, [cartaoAtivo]);
+  }, [cartaoAtivo]);
 
+  useEffect(() => {
+    if (!usuario) return;
+
+    async function carregarTudo() {
+      const tempoMinimo = new Promise((resolve) =>
+        setTimeout(resolve, 20000)
+      );
+
+      const carregarAPI = Promise.all([
+        carregarCartoes(),
+        carregarDados()
+      ]);
+
+      await Promise.all([tempoMinimo, carregarAPI]);
+
+      setLoadingInicial(false);
+    }
+
+    carregarTudo();
+  }, [usuario, carregarCartoes, carregarDados]);
+
+  
   function formatarData(dataISO) {
     if (!dataISO) return "";
 
