@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./App.css";
 import AddCartao from "./AddCartao";
@@ -6,62 +6,87 @@ import RemoverCartao from "./RemoverCartao";
 import React from "react";
 import CambioChart from "./CambioChart";
 import FinanceChart from "./FinanceChart";
-import { useMemo } from "react";
 import API_URL from "./config";
 import Auth from "./Auth";
 import { apiFetch } from "./config";
 import LoadingOverlay from "./LoadingOverlay";
-
+ 
+// ─── helpers ────────────────────────────────────────────────────────────────
+ 
+function normalizarMoeda(moeda) {
+  if (moeda === "R$") return "BRL";
+  if (moeda === "$")  return "USD";
+  if (moeda === "€")  return "EUR";
+  return moeda;
+}
+ 
+function formatarMoeda(valor, moeda) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: moeda,
+  }).format(valor || 0);
+}
+ 
+function formatarData(dataISO) {
+  if (!dataISO) return "";
+  const [ano, mes, dia] = dataISO.split("T")[0].split("-");
+  return `${dia}/${mes}/${ano}`;
+}
+ 
+const CATEGORIAS_FIXAS = [
+  "Moradia", "Mercado", "Restaurante", "Transporte",
+  "Saúde", "Assinaturas", "Compras", "Passeio", "Salário", "Outros",
+];
+ 
+const FORM_VAZIO = {
+  data: "", descricao: "", valor: "",
+  categoria: "", status: "receita", cartoesId: "",
+};
+ 
+// ────────────────────────────────────────────────────────────────────────────
+ 
 function App() {
   const [loadingInicial, setLoadingInicial] = useState(true);
-  const [usuario, setUsuario] = useState(null);
-  const [semestre, setSemestre] = useState(1); // 1 = Jan-Jun | 2 = Jul-Dez
-  const [dados, setDados] = useState([]);
-  const [cartoes, setCartoes] = useState([]);
-  const [cartaoAtivo, setCartaoAtivo] = useState(null);
-
-  const [mostrarCartao, setMostrarCartao] = useState(false);
+  const [usuario, setUsuario]               = useState(null);
+  const [dados, setDados]                   = useState([]);
+  const [cartoes, setCartoes]               = useState([]);
+  const [cartaoAtivo, setCartaoAtivo]       = useState(null);
+  const [taxas, setTaxas]                   = useState({});
+  const [moedaGlobal, setMoedaGlobal]       = useState("BRL");
+  const [busca, setBusca]                   = useState("");
+ 
+  // UI toggles
+  const [mostrarCartao,  setMostrarCartao]  = useState(false);
   const [mostrarRemover, setMostrarRemover] = useState(false);
-  const [mostrarForm, setMostrarForm] = useState(false);
-
-  const [modoEdicao, setModoEdicao] = useState(false);
-  const [idEditando, setIdEditando] = useState(null);
-
-  const [busca, setBusca] = useState("");
-
-  // FORM
-  const [data, setData] = useState("");
-  const [descricao, setDescricao] = useState("");
-  const [valor, setValor] = useState("");
-  const [categoria, setCategoria] = useState("");
-  const [status, setStatus] = useState("receita");
-  const [cartoesId, setCartoesId] = useState("");
-
-
-  const [mostrarCambio, setMostrarCambio] = useState(false);
+  const [mostrarForm,    setMostrarForm]    = useState(false);
+  const [mostrarCambio,  setMostrarCambio]  = useState(false);
+ 
+  // seleção / edição
+  const [modoSelecao,  setModoSelecao]  = useState(false);
+  const [selecionados, setSelecionados] = useState([]);
+  const [modoEdicao,   setModoEdicao]   = useState(false);
+  const [idEditando,   setIdEditando]   = useState(null);
+ 
+  // form
+  const [form, setForm] = useState(FORM_VAZIO);
+  const setField = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
+ 
+  // datas / período
   const hoje = new Date();
-
   const [anoSelecionado, setAnoSelecionado] = useState(hoje.getFullYear());
   const [mesSelecionado, setMesSelecionado] = useState(hoje.getMonth() + 1);
-
-  const [selecionados, setSelecionados] = useState([]);
-  const [modoSelecao, setModoSelecao] = useState(false);
-
-  const [moedaGlobal, setMoedaGlobal] = useState("BRL");
-  const [taxas, setTaxas] = useState({});
-
+  const [semestre, setSemestre]             = useState(1);
+ 
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 600);
-
+ 
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 600);
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    const onResize = () => setIsMobile(window.innerWidth <= 600);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
-
-  // 🔥 LOGOUT
+ 
+  // ── auth ──────────────────────────────────────────────────────────────────
+ 
   function handleLogout() {
     localStorage.removeItem("token");
     setUsuario(null);
@@ -69,381 +94,263 @@ function App() {
     setCartoes([]);
     setCartaoAtivo(null);
   }
-
-  function normalizarMoeda(moeda) {
-    if (moeda === "R$") return "BRL";
-    if (moeda === "$") return "USD";
-    if (moeda === "€") return "EUR";
-    return moeda;
-  }
-
-  function formatarMoeda(valor, moeda) {
-    return new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: moeda,
-    }).format(valor || 0);
-  }
-
-  const simboloMoeda = moedaGlobal;
-
-  // 🔥 carregar lançamentos
+ 
+  // ── API: taxas de câmbio ──────────────────────────────────────────────────
+ 
+  useEffect(() => {
+    async function carregarTaxas() {
+      try {
+        const hoje     = new Date();
+        const passado  = new Date();
+        passado.setDate(hoje.getDate() - 3);
+        const fmt = (d) => d.toISOString().split("T")[0];
+        const res  = await fetch(
+          `https://api.frankfurter.dev/v1/${fmt(passado)}..${fmt(hoje)}?from=EUR&to=BRL,USD`
+        );
+        const data = await res.json();
+        const ultima = Object.keys(data.rates).pop();
+        const rates  = data.rates[ultima];
+        setTaxas({ EUR: 1, BRL: rates.BRL, USD: rates.USD });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    carregarTaxas();
+  }, []);
+ 
+  // ── API: dados ────────────────────────────────────────────────────────────
+ 
   const carregarDados = useCallback(async () => {
     try {
       let url = `${API_URL}/lancamentos`;
-
-      if (cartaoAtivo !== "todos") {
-        url += `?cartoes=${cartaoAtivo}`;
-      }
-
-      const response = await apiFetch(url);
-      const data = await response.json();
-
+      if (cartaoAtivo !== "todos") url += `?cartoes=${cartaoAtivo}`;
+      const res  = await apiFetch(url);
+      const data = await res.json();
       setDados(data.dados || []);
-
-    } catch (error) {
-      console.error(error);
+    } catch (err) {
+      console.error(err);
     }
   }, [cartaoAtivo]);
-
-  // 🔥 carregar cartões
+ 
   const carregarCartoes = useCallback(async () => {
     try {
-      const res = await apiFetch(`${API_URL}/cartoes`);
+      const res  = await apiFetch(`${API_URL}/cartoes`);
       const data = await res.json();
-
-      // 🔥 proteção correta
       const lista = Array.isArray(data) ? data : [];
       setCartoes(lista);
-
-      if (lista.length > 0) {
-        if (cartaoAtivo === "todos") return;
-        const existe = lista.find(c => c.id === cartaoAtivo);
+      if (lista.length > 0 && cartaoAtivo !== "todos") {
+        const existe = lista.find((c) => c.id === cartaoAtivo);
         if (!existe) setCartaoAtivo(lista[0].id);
       }
-    } catch (error) {
-      console.error(error);
-      setCartoes([]); // 🔥 garante array mesmo em erro de rede
+    } catch (err) {
+      console.error(err);
+      setCartoes([]);
     }
   }, [cartaoAtivo]);
-
+ 
+  // carregamento inicial após login
   useEffect(() => {
     if (!usuario) return;
-
     async function carregarTudo() {
-      const tempoMinimo = new Promise((resolve) =>
-        setTimeout(resolve, 20000)
-      );
-
-      const carregarAPI = Promise.all([
-        carregarCartoes(),
-        carregarDados()
-      ]);
-
-      await Promise.all([tempoMinimo, carregarAPI]);
-
+      const tempoMinimo = new Promise((r) => setTimeout(r, 20000));
+      await Promise.all([tempoMinimo, carregarCartoes(), carregarDados()]);
       setLoadingInicial(false);
     }
-
     carregarTudo();
-  }, [usuario, carregarCartoes, carregarDados]);
-
-  
-  function formatarData(dataISO) {
-    if (!dataISO) return "";
-
-    const dataLimpa = dataISO.split("T")[0]; // remove hora
-    const [ano, mes, dia] = dataLimpa.split("-");
-
-    return `${dia}/${mes}/${ano}`;
-  }
-
+  }, [usuario]); // eslint-disable-line react-hooks/exhaustive-deps
+ 
+  useEffect(() => { carregarCartoes(); }, [carregarCartoes]);
+ 
   useEffect(() => {
-    carregarCartoes();
-  }, [carregarCartoes]);
-
-  useEffect(() => {
-    if (cartaoAtivo) {
-      carregarDados();
-    } 
+    if (cartaoAtivo) carregarDados();
   }, [cartaoAtivo, carregarDados]);
-
-  // 🔥 cadastrar lançamento
+ 
+  // ── conversão ─────────────────────────────────────────────────────────────
+ 
+  const converter = useCallback(
+    (valor, origem, destino) => {
+      if (!taxas[origem] || !taxas[destino] || origem === destino) return valor;
+      const emEUR = origem === "EUR" ? valor : valor / taxas[origem];
+      return destino === "EUR" ? emEUR : emEUR * taxas[destino];
+    },
+    [taxas]
+  );
+ 
+  const dadosConvertidos = useMemo(() => {
+    if (!taxas || !Object.keys(taxas).length) return dados;
+    return dados.map((item) => {
+      const cartao      = cartoes.find((c) => c.id === item.cartoesId);
+      const moedaOrigem = normalizarMoeda(cartao?.moeda || "BRL");
+      const valorNum    =
+        typeof item.valor === "number"
+          ? item.valor
+          : Number(
+              String(item.valor).includes(",")
+                ? String(item.valor).replace(/\./g, "").replace(",", ".")
+                : item.valor
+            ) || 0;
+      return {
+        ...item,
+        valorConvertido:
+          moedaOrigem === moedaGlobal
+            ? valorNum
+            : converter(valorNum, moedaOrigem, moedaGlobal),
+      };
+    });
+  }, [dados, cartoes, moedaGlobal, taxas, converter]);
+ 
+  // ── filtros / agregações ──────────────────────────────────────────────────
+ 
+  const dadosFiltradosPeriodo = dadosConvertidos.filter((item) => {
+    if (!item.data) return false;
+    const [ano, mes] = item.data.split("T")[0].split("-");
+    return Number(ano) === anoSelecionado && Number(mes) === mesSelecionado;
+  });
+ 
+  const receitasConvertidas  = dadosFiltradosPeriodo
+    .filter((i) => i.status === "receita")
+    .reduce((acc, i) => acc + Number(i.valorConvertido), 0);
+ 
+  const despesasConvertidas  = dadosFiltradosPeriodo
+    .filter((i) => i.status === "despesa")
+    .reduce((acc, i) => acc + Number(i.valorConvertido), 0);
+ 
+  const saldoTotal = dadosConvertidos.reduce(
+    (acc, i) =>
+      i.status === "receita"
+        ? acc + Number(i.valorConvertido)
+        : acc - Number(i.valorConvertido),
+    0
+  );
+ 
+  const dadosFiltrados = dadosConvertidos.filter((item) =>
+    item.descricao?.toLowerCase().includes(busca.toLowerCase())
+  );
+ 
+  const dadosDoAno = dadosConvertidos.filter((item) => {
+    if (!item.data) return false;
+    return Number(item.data.split("T")[0].split("-")[0]) === anoSelecionado;
+  });
+ 
+  const resumoCategorias = useMemo(() => {
+    const res = {};
+    CATEGORIAS_FIXAS.forEach((c) => { res[c] = 0; });
+    dadosFiltradosPeriodo.forEach((item) => {
+      if (!item.categoria) return;
+      const v = Number(item.valorConvertido) || 0;
+      res[item.categoria] = (res[item.categoria] || 0) + (item.status === "receita" ? v : -v);
+    });
+    return res;
+  }, [dadosFiltradosPeriodo]);
+ 
+  const anosDisponiveis = useMemo(() =>
+    [...new Set(
+      dados.filter((i) => i.data).map((i) => Number(i.data.split("T")[0].split("-")[0]))
+    )].sort((a, b) => b - a),
+    [dados]
+  );
+ 
+  useEffect(() => {
+    if (anosDisponiveis.length && !anosDisponiveis.includes(anoSelecionado)) {
+      setAnoSelecionado(anosDisponiveis[0]);
+    }
+  }, [anosDisponiveis, anoSelecionado]);
+ 
+  // ── formulário de lançamento ──────────────────────────────────────────────
+ 
+  function abrirFormNovo() {
+    setModoEdicao(false);
+    setIdEditando(null);
+    setForm(FORM_VAZIO);
+    setMostrarForm((v) => !v);
+  }
+ 
+  function fecharForm() {
+    setMostrarForm(false);
+    setModoEdicao(false);
+    setIdEditando(null);
+    setForm(FORM_VAZIO);
+  }
+ 
+  function abrirFormEdicao() {
+    const id   = selecionados[0];
+    const item = dados.find((i) => i.id === id);
+    if (!item) return;
+    setModoEdicao(true);
+    setIdEditando(id);
+    setForm({
+      data:       item.data?.split("T")[0] || "",
+      descricao:  item.descricao,
+      valor:      item.valor,
+      categoria:  item.categoria,
+      status:     item.status,
+      cartoesId:  item.cartoesId,
+    });
+    setMostrarForm(true);
+  }
+ 
   async function cadastrar(e) {
     e.preventDefault();
-
-    if (!cartoesId) {
-      alert("Selecione um cartão!");
-      return;
-    }
-
+    if (!form.cartoesId) { alert("Selecione um cartão!"); return; }
     try {
-      let url = `${API_URL}/lancamentos`;
-      let method = "POST";
-
-      if (modoEdicao) {
-        url += `/${idEditando}`;
-        method = "PUT";
-      }
-
-      const res = await apiFetch(url, {
+      const url    = modoEdicao ? `${API_URL}/lancamentos/${idEditando}` : `${API_URL}/lancamentos`;
+      const method = modoEdicao ? "PUT" : "POST";
+      const res    = await apiFetch(url, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          data,
-          descricao,
-          valor,
-          categoria,
-          status,
-          cartoesId: Number(cartoesId),
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...form, cartoesId: Number(form.cartoesId) }),
       });
-
-      if (!res.ok) {
-        const erro = await res.json();
-        alert(erro.error);
-        return;
-      }
-
-      // 🔥 reset
-      setDescricao("");
-      setValor("");
-      setCategoria("");
-      setStatus("receita");
-      setCartoesId("");
-      setMostrarForm(false);
-
-      setModoEdicao(false);
-      setIdEditando(null);
+      if (!res.ok) { const erro = await res.json(); alert(erro.error); return; }
+      fecharForm();
       setSelecionados([]);
-
+      setModoSelecao(false);
       carregarDados();
-
     } catch (err) {
       console.error(err);
       alert("Erro ao salvar");
     }
   }
-
-    const converter = useCallback((valor, moedaOrigem, moedaDestino) => {
-    if (!taxas || !taxas[moedaOrigem] || !taxas[moedaDestino]) {
-      return valor;
-    }
-
-    if (moedaOrigem === moedaDestino) return valor;
-
-    let emEUR = moedaOrigem === "EUR"
-      ? valor
-      : valor / taxas[moedaOrigem];
-
-    return moedaDestino === "EUR"
-      ? emEUR
-      : emEUR * taxas[moedaDestino];
-  }, [taxas]);
-
-  const dadosConvertidos = useMemo(() => {
-
-    if (!taxas || Object.keys(taxas).length === 0) return dados;
-
-    return dados.map(item => {
-      const cartao = cartoes.find(c => c.id === item.cartoesId);
-      const moedaOrigem = normalizarMoeda(cartao?.moeda || "BRL");
-
-      const valorNumerico =
-        typeof item.valor === "number"
-          ? item.valor
-          : Number(
-              String(item.valor).includes(",")
-                ? String(item.valor)
-                    .replace(/\./g, "") // milhar
-                    .replace(",", ".")  // decimal BR
-                : item.valor // já está correto (ex: 24.00)
-            ) || 0;
-
-      const valorConvertido =
-        moedaOrigem === moedaGlobal
-          ? valorNumerico
-          : converter(valorNumerico, moedaOrigem, moedaGlobal);
-
-      return {
-        ...item,
-        valorConvertido
-      };
-    });
-
-  }, [dados, cartoes, moedaGlobal, taxas, converter]);
-
-  const dadosFiltradosPeriodo = dadosConvertidos.filter(item => {
-    if (!item.data) return false;
-
-    const [ano, mes] = item.data.split("T")[0].split("-");
-
-    return (
-      Number(ano) === anoSelecionado &&
-      Number(mes) === mesSelecionado
+ 
+  async function excluirSelecionados() {
+    if (!window.confirm("Excluir selecionados?")) return;
+    await Promise.all(
+      selecionados.map((id) =>
+        apiFetch(`${API_URL}/lancamentos/${id}`, { method: "DELETE" })
+      )
     );
-  });
-
-  const receitasConvertidas = dadosFiltradosPeriodo
-    .filter(i => i.status === "receita")
-    .reduce((acc, i) =>
-      acc + Number(i.valorConvertido), 0
-    );
-
-  const despesasConvertidas = dadosFiltradosPeriodo
-    .filter(i => i.status === "despesa")
-    .reduce((acc, i) =>
-      acc + Number(i.valorConvertido), 0
-    );
-
-  const saldoTotal = dadosConvertidos.reduce((acc, item) => {
-    const valor = Number(item.valorConvertido) || 0;
-
-    if (item.status === "receita") {
-      return acc + valor;
-    } else {
-      return acc - valor;
-    }
-  }, 0);
-
-  // 🔥 filtro busca (seguro)
-  const dadosFiltrados = (dadosConvertidos || []).filter((item) =>
-    item.descricao?.toLowerCase().includes(busca.toLowerCase())
-  );
-
-  const dadosDoAno = dadosConvertidos.filter(item => {
-    if (!item.data) return false;
-
-    const dataLimpa = item.data.split("T")[0];
-    const [ano] = dataLimpa.split("-");
-
-    return Number(ano) === anoSelecionado;
-  });
-
-  const categoriasFixas = [
-    'Moradia',
-    'Mercado',
-    'Restaurante',
-    'Transporte',
-    'Saúde',
-    'Assinaturas',
-    'Compras',
-    'Passeio',
-    'Salário',
-    'Outros'
-  ];
-
-  const resumoCategorias = {};
-
-  // 🔥 inicia todas com 0
-  categoriasFixas.forEach(cat => {
-    resumoCategorias[cat] = 0;
-  });
-
-  // 🔥 soma os dados reais
-  dadosFiltradosPeriodo.forEach((item) => {
-    if (!item.categoria) return;
-
-    const valor = Number(item.valorConvertido) || 0;
-
-    if (item.status === "receita") {
-      resumoCategorias[item.categoria] += valor;
-    } else {
-      resumoCategorias[item.categoria] -= valor;
-    }
-  
-  });
-
-  const anosDisponiveis = [
-    ...new Set(
-      dados
-        .filter(item => item.data)
-        .map(item => Number(item.data.split("T")[0].split("-")[0]))
-    )
-  ].sort((a, b) => b - a);
-
-  useEffect(() => {
-    if (anosDisponiveis.length === 0) return;
-
-    if (!anosDisponiveis.includes(anoSelecionado)) {
-      setAnoSelecionado(anosDisponiveis[0]);
-    }
-  }, [anosDisponiveis, anoSelecionado]);
-
-  useEffect(() => {
-    async function carregarTaxas() {
-    try {
-      const hoje = new Date();
-      const passado = new Date();
-      passado.setDate(hoje.getDate() - 3); // últimos 3 dias bastam
-
-      const formatar = (d) => d.toISOString().split("T")[0];
-
-      const url = `https://api.frankfurter.dev/v1/${formatar(passado)}..${formatar(hoje)}?from=EUR&to=BRL,USD`;
-
-      const res = await fetch(url); // 🔥 direto
-      const data = await res.json();
-
-      const ultimaData = Object.keys(data.rates).pop();
-      const rates = data.rates[ultimaData];
-
-      setTaxas({
-        EUR: 1,
-        BRL: rates.BRL,
-        USD: rates.USD
-      });
-
-    } catch (err) {
-      console.error(err);
-    }
+    setSelecionados([]);
+    setModoSelecao(false);
+    carregarDados();
   }
-
-  carregarTaxas();
-  }, []);
-
-  if (!usuario) {
-    return <Auth onLogin={setUsuario} />;
-  }
-  
+ 
+  // ── render ────────────────────────────────────────────────────────────────
+ 
+  if (!usuario) return <Auth onLogin={setUsuario} />;
+ 
   return (
     <>
-      {loadingInicial && (
-        <LoadingOverlay nome={usuario?.nome} />
-      )}
+      {loadingInicial && <LoadingOverlay nome={usuario?.nome} />}
+ 
       <div>
-
-        {/* HEADER */}
+        {/* ── HEADER ── */}
         <header className="header">
-
-          {/* 🔥 ESQUERDA (moeda) */}
+ 
           {!isMobile && (
             <div className="header-left">
               <div className="currency-buttons">
-                <button
-                  className={moedaGlobal === "BRL" ? "active" : ""}
-                  onClick={() => setMoedaGlobal("BRL")}
-                >
-                  Real
-                </button>
-
-                <button
-                  className={moedaGlobal === "USD" ? "active" : ""}
-                  onClick={() => setMoedaGlobal("USD")}
-                >
-                  Dollar
-                </button>
-
-                <button
-                  className={moedaGlobal === "EUR" ? "active" : ""}
-                  onClick={() => setMoedaGlobal("EUR")}
-                >
-                  Euro
-                </button>
+                {["BRL", "USD", "EUR"].map((m) => (
+                  <button
+                    key={m}
+                    className={moedaGlobal === m ? "active" : ""}
+                    onClick={() => setMoedaGlobal(m)}
+                  >
+                    {m === "BRL" ? "Real" : m === "USD" ? "Dollar" : "Euro"}
+                  </button>
+                ))}
               </div>
             </div>
           )}
-
+ 
           <nav className="header-center">
             {!isMobile ? (
               <ul>
@@ -455,7 +362,7 @@ function App() {
                     Consolidado
                   </button>
                 </li>
-
+ 
                 {cartoes.map((c) => (
                   <li key={c.id}>
                     <button
@@ -466,71 +373,54 @@ function App() {
                     </button>
                   </li>
                 ))}
-
+ 
                 <li>
                   <button
-                    className="action-btn add"
+                    className="action-btn"
                     onClick={() => {
-                      if (cartoes.length >= 3) {
-                        alert("Você já atingiu o limite de 3 cartões.");
-                        return;
-                      }
+                      if (cartoes.length >= 3) { alert("Limite de 3 cartões atingido."); return; }
                       setMostrarCartao(true);
                     }}
                   >
                     Adicionar
                   </button>
                 </li>
-
+ 
                 <li>
-                  <button
-                    className="action-btn remove"
-                    onClick={() => setMostrarRemover(true)}
-                  >
+                  <button className="action-btn" onClick={() => setMostrarRemover(true)}>
                     Remover
                   </button>
                 </li>
               </ul>
             ) : (
-              // 🔥 MOBILE = SELECT
               <div className="button-mm-yy">
                 <select
                   value={cartaoAtivo || ""}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    setCartaoAtivo(value === "todos" ? "todos" : Number(value));
+                    const v = e.target.value;
+                    setCartaoAtivo(v === "todos" ? "todos" : Number(v));
                   }}
                 >
                   <option value="todos">Consolidado</option>
-
                   {cartoes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nome}
-                    </option>
+                    <option key={c.id} value={c.id}>{c.nome}</option>
                   ))}
                 </select>
-
+ 
                 <ul>
                   <li>
                     <button
-                      className="action-btn add"
+                      className="action-btn"
                       onClick={() => {
-                        if (cartoes.length >= 3) {
-                          alert("Você já atingiu o limite de 3 cartões.");
-                          return;
-                        }
+                        if (cartoes.length >= 3) { alert("Limite de 3 cartões atingido."); return; }
                         setMostrarCartao(true);
                       }}
                     >
                       Adicionar
                     </button>
                   </li>
-
                   <li>
-                    <button
-                      className="action-btn remove"
-                      onClick={() => setMostrarRemover(true)}
-                    >
+                    <button className="action-btn" onClick={() => setMostrarRemover(true)}>
                       Remover
                     </button>
                   </li>
@@ -538,82 +428,54 @@ function App() {
               </div>
             )}
           </nav>
-
-          {/* 🔥 DIREITA (logout) */}
+ 
           <div className="header-right">
-            <button className="btn-logout" onClick={handleLogout}>
-              Sair
-            </button>
+            <button className="btn-logout" onClick={handleLogout}>Sair</button>
           </div>
-
         </header>
-
+ 
+        {/* moeda no mobile */}
         {isMobile && (
           <div className="mobile-currency-wrapper">
             <div className="currency-buttons">
-              <button
-                className={moedaGlobal === "BRL" ? "active" : ""}
-                onClick={() => setMoedaGlobal("BRL")}
-              >
-                Real
-              </button>
-
-              <button
-                className={moedaGlobal === "USD" ? "active" : ""}
-                onClick={() => setMoedaGlobal("USD")}
-              >
-                Dollar
-              </button>
-
-              <button
-                className={moedaGlobal === "EUR" ? "active" : ""}
-                onClick={() => setMoedaGlobal("EUR")}
-              >
-                Euro
-              </button>
+              {["BRL", "USD", "EUR"].map((m) => (
+                <button
+                  key={m}
+                  className={moedaGlobal === m ? "active" : ""}
+                  onClick={() => setMoedaGlobal(m)}
+                >
+                  {m === "BRL" ? "Real" : m === "USD" ? "Dollar" : "Euro"}
+                </button>
+              ))}
             </div>
           </div>
         )}
-
+ 
         <div className="main-box">
-
+ 
+          {/* ── LAYOUT PRINCIPAL ── */}
           <div className="layout">
-
-            {/* ESQUERDA (25%) */}
+ 
+            {/* ESQUERDA — cards */}
             <div className="left">
-
               <div className="box saldo">
                 <strong>Saldo</strong>
-                <span>
-                  {formatarMoeda(saldoTotal, simboloMoeda)}
-                </span>
+                <span>{formatarMoeda(saldoTotal, moedaGlobal)}</span>
               </div>
-
               <div className="box receita">
                 <strong>Receitas</strong>
-                <span>
-                  {formatarMoeda(receitasConvertidas, simboloMoeda)}
-                </span>
+                <span>{formatarMoeda(receitasConvertidas, moedaGlobal)}</span>
               </div>
-
               <div className="box despesa">
                 <strong>Despesas</strong>
-                <span>
-                  {formatarMoeda(Math.abs(despesasConvertidas), simboloMoeda)}
-                </span>
+                <span>{formatarMoeda(Math.abs(despesasConvertidas), moedaGlobal)}</span>
               </div>
-
             </div>
-
-            {/* DIREITA (75%) */}
+ 
+            {/* DIREITA — gráficos */}
             <div className="right">
-
-              {/* PARTE DE CIMA */}
               <div className="top">
-
                 <div className="top-bar">
-    
-                  {/* BOTÕES */}
                   <div className="actions-buttons">
                     <button
                       className={!mostrarCambio ? "active" : ""}
@@ -621,7 +483,6 @@ function App() {
                     >
                       Mensal
                     </button>
-
                     <button
                       className={mostrarCambio ? "active" : ""}
                       onClick={() => setMostrarCambio(true)}
@@ -629,383 +490,303 @@ function App() {
                       Câmbio
                     </button>
                   </div>
-
-                  {/* ANO */}
-                    {!mostrarCambio && (
-                      <div className="button-mm-yy">
+ 
+                  {!mostrarCambio && (
+                    <div className="button-mm-yy">
+                      <select
+                        value={anoSelecionado}
+                        onChange={(e) => setAnoSelecionado(Number(e.target.value))}
+                      >
+                        {anosDisponiveis.map((a) => (
+                          <option key={a} value={a}>{a}</option>
+                        ))}
+                      </select>
+ 
+                      {isMobile && (
                         <select
-                          value={anoSelecionado}
-                          onChange={(e) => setAnoSelecionado(Number(e.target.value))}
+                          value={semestre}
+                          onChange={(e) => setSemestre(Number(e.target.value))}
                         >
-                          {anosDisponiveis.map((ano) => (
-                            <option key={ano} value={ano}>
-                              {ano}
-                            </option>
-                          ))}
+                          <option value={1}>Jan - Jun</option>
+                          <option value={2}>Jul - Dez</option>
                         </select>
-
-                        {/* 🔥 NOVO SELECT (só mobile) */}
-                        {isMobile && !mostrarCambio && (
-                          <select
-                            value={semestre}
-                            onChange={(e) => setSemestre(Number(e.target.value))}
-                          >
-                            <option value={1}>Jan - Jun</option>
-                            <option value={2}>Jul - Dez</option>
-                          </select>
-                        )}
-                      </div>
-                    )}
-
+                      )}
+                    </div>
+                  )}
                 </div>
-
-                {/* CONTEÚDO */}
+ 
                 {mostrarCambio ? (
                   <CambioChart />
                 ) : (
-                  <FinanceChart 
-                    dados={dadosDoAno} 
+                  <FinanceChart
+                    dados={dadosDoAno}
                     moeda={moedaGlobal}
                     isMobile={isMobile}
                     semestre={semestre}
                   />
                 )}
-
               </div>
-
             </div>
-          
           </div>
-
-
+ 
+          {/* ── TABELA CATEGORIAS ── */}
           <div className="main-tab-categorias">
-
             <div className="button-mm-yy">
-
-                {/* ANO */}
-                <select
-                  value={anoSelecionado}
-                  onChange={(e) => setAnoSelecionado(Number(e.target.value))}
-                >
-                  {anosDisponiveis.map((ano) => (
-                    <option key={ano} value={ano}>
-                      {ano}
-                    </option>
-                  ))}
-                </select>
-
-                {/* MÊS */}
-                <select
-                  value={mesSelecionado}
-                  onChange={(e) => {
-                    const novoMes = Number(e.target.value);
-                    setMesSelecionado(novoMes);
-                  }}
-                >
-                  <option value={1}>Janeiro</option>
-                  <option value={2}>Fevereiro</option>
-                  <option value={3}>Março</option>
-                  <option value={4}>Abril</option>
-                  <option value={5}>Maio</option>
-                  <option value={6}>Junho</option>
-                  <option value={7}>Julho</option>
-                  <option value={8}>Agosto</option>
-                  <option value={9}>Setembro</option>
-                  <option value={10}>Outubro</option>
-                  <option value={11}>Novembro</option>
-                  <option value={12}>Dezembro</option>
-                </select>
-
-              </div>
-
-              <table className="tabela-categorias">
-                <thead>
-                  <tr>
-                    <th>Categoria</th>
-                    <th>Total</th>
-                    {!isMobile && <th>Categoria</th>}
-                    {!isMobile && <th>Total</th>}
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {isMobile ? (
-                    Object.entries(resumoCategorias).map(([categoria, valor], index) => (
-                      <tr key={index}>
-                        <td>{categoria}</td>
-                        <td style={{
-                          color: valor >= 0 ? "green" : "red",
-                          fontWeight: "bold"
-                        }}>
-                          {formatarMoeda(Math.abs(valor), simboloMoeda)}
+              <select
+                value={anoSelecionado}
+                onChange={(e) => setAnoSelecionado(Number(e.target.value))}
+              >
+                {anosDisponiveis.map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+ 
+              <select
+                value={mesSelecionado}
+                onChange={(e) => setMesSelecionado(Number(e.target.value))}
+              >
+                {[
+                  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+                  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+                ].map((nome, i) => (
+                  <option key={i + 1} value={i + 1}>{nome}</option>
+                ))}
+              </select>
+            </div>
+ 
+            <table className="tabela-categorias">
+              <thead>
+                <tr>
+                  <th>Categoria</th>
+                  <th>Total</th>
+                  {!isMobile && <th>Categoria</th>}
+                  {!isMobile && <th>Total</th>}
+                </tr>
+              </thead>
+ 
+              <tbody>
+                {isMobile ? (
+                  Object.entries(resumoCategorias).map(([cat, val], i) => (
+                    <tr key={i}>
+                      <td>{cat}</td>
+                      <td style={{ color: val >= 0 ? "var(--color-receita)" : "var(--color-despesa)", fontWeight: 700 }}>
+                        {formatarMoeda(Math.abs(val), moedaGlobal)}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  Object.entries(resumoCategorias)
+                    .reduce((acc, curr, i, arr) => {
+                      if (i % 2 === 0) acc.push([curr, arr[i + 1]]);
+                      return acc;
+                    }, [])
+                    .map((par, i) => (
+                      <tr key={i}>
+                        <td>{par[0][0]}</td>
+                        <td style={{ color: par[0][1] >= 0 ? "var(--color-receita)" : "var(--color-despesa)", fontWeight: 700 }}>
+                          {formatarMoeda(Math.abs(par[0][1]), moedaGlobal)}
                         </td>
+                        {par[1] ? (
+                          <>
+                            <td>{par[1][0]}</td>
+                            <td style={{ color: par[1][1] >= 0 ? "var(--color-receita)" : "var(--color-despesa)", fontWeight: 700 }}>
+                              {formatarMoeda(Math.abs(par[1][1]), moedaGlobal)}
+                            </td>
+                          </>
+                        ) : (
+                          <><td /><td /></>
+                        )}
                       </tr>
                     ))
-                  ) : (
-                    Object.entries(resumoCategorias)
-                      .reduce((acc, curr, i, arr) => {
-                        if (i % 2 === 0) {
-                          acc.push([curr, arr[i + 1]]);
-                        }
-                        return acc;
-                      }, [])
-                      .map((par, index) => (
-                        <tr key={index}>
-                          <td>{par[0][0]}</td>
-                          <td style={{
-                            color: par[0][1] >= 0 ? "green" : "red",
-                            fontWeight: "bold"
-                          }}>
-                            {formatarMoeda(Math.abs(par[0][1]), simboloMoeda)}
-                          </td>
-
-                          {par[1] ? (
-                            <>
-                              <td>{par[1][0]}</td>
-                              <td style={{
-                                color: par[1][1] >= 0 ? "green" : "red",
-                                fontWeight: "bold"
-                              }}>
-                                {formatarMoeda(Math.abs(par[1][1]), simboloMoeda)}
-                              </td>
-                            </>
-                          ) : (
-                            <>
-                              <td></td>
-                              <td></td>
-                            </>
-                          )}
-                        </tr>
-                      ))
-                  )}
-                </tbody>
-              </table>
-
+                )}
+              </tbody>
+            </table>
           </div>
-
-
+ 
+          {/* ── LANÇAMENTOS ── */}
           <div className="box-tabela-search">
+ 
+            {/* barra de busca + ações */}
             <div className="dvSearch">
               <input
                 type="text"
-                className="form-control"
-                placeholder=" Buscar..."
+                placeholder="Buscar..."
                 value={busca}
                 onChange={(e) => setBusca(e.target.value)}
               />
-
+ 
               <div className="actions-buttons">
-                <button
-                  className="btn btn-primary"
-                  onClick={() => setMostrarForm(!mostrarForm)}
-                >
-                  {mostrarForm ? "Fechar" : "Adicionar"}
+                <button onClick={abrirFormNovo}>
+                  {mostrarForm && !modoEdicao ? "Fechar" : "Adicionar"}
                 </button>
-
+ 
                 <button
-                  className={`btn ${modoSelecao ? "btn-warning" : "btn-secondary"}`}
-                  onClick={() => {
-                    setModoSelecao(!modoSelecao);
-                    setSelecionados([]);
-                  }}
+                  className={modoSelecao ? "active" : ""}
+                  onClick={() => { setModoSelecao((v) => !v); setSelecionados([]); }}
                 >
-                  {modoSelecao ? "Cancelar seleção" : "Selecionar"}
+                  {modoSelecao ? "Cancelar" : "Selecionar"}
                 </button>
-
+ 
                 <button
-                  className={`btn-edit ${modoEdicao ? "active" : ""}`}
                   disabled={selecionados.length !== 1}
-                  onClick={() => {
-                    const id = selecionados[0];
-                    const item = dados.find(i => i.id === id);
-
-                    if (!item) return;
-
-                    setModoEdicao(true);
-                    setIdEditando(id);
-
-                    // 🔥 preenche form
-                    setData(item.data?.split("T")[0] || "");
-                    setDescricao(item.descricao);
-                    setValor(item.valor);
-                    setCategoria(item.categoria);
-                    setStatus(item.status);
-                    setCartoesId(item.cartoesId);
-
-                    setMostrarForm(true);
-                  }}
+                  onClick={abrirFormEdicao}
                 >
                   Editar
                 </button>
-
+ 
                 <button
-                  className="btn-delete"
                   disabled={selecionados.length === 0}
-                  onClick={async () => {
-                    if (!window.confirm("Excluir selecionados?")) return;
-
-                    await Promise.all(
-                      selecionados.map(id =>
-                        apiFetch(`${API_URL}/lancamentos/${id}`, {
-                          method: "DELETE"
-                        })
-                      )
-                    );
-
-                    setSelecionados([]);
-                    setModoSelecao(false);
-                    carregarDados();
-                  }}
+                  onClick={excluirSelecionados}
                 >
                   Excluir
                 </button>
               </div>
             </div>
-
+ 
+            {/* ── FORMULÁRIO SLIDEDOWN ── */}
             {mostrarForm && (
-              <form onSubmit={cadastrar} className="card p-3 mt-3">
-
-                <input
-                  type="date"
-                  className="form-control mb-2"
-                  value={data}
-                  onChange={(e) => setData(e.target.value)}
-                  required
-                />
-
-                <select
-                  className="form-control mb-2"
-                  value={categoria}
-                  onChange={(e) => setCategoria(e.target.value)}
-                  required
-                >
-                  <option value="">Categoria</option>
-                  <option>Salário</option>
-                  <option>Moradia</option>
-                  <option>Mercado</option>
-                  <option>Restaurante</option>
-                  <option>Assinaturas</option>
-                  <option>Passeio</option>
-                  <option>Saúde</option>
-                  <option>Transporte</option>
-                  <option>Compras</option>
-                  <option>Outros</option>
-                </select>
-
-                <input
-                  type="text"
-                  placeholder="Descrição"
-                  className="form-control mb-2"
-                  value={descricao}
-                  onChange={(e) => setDescricao(e.target.value)}
-                  required
-                />
-
-                <input
-                  type="number"
-                  placeholder="Valor"
-                  step="0.01"
-                  className="form-control mb-2"
-                  value={valor}
-                  onChange={(e) => setValor(e.target.value)}
-                  required
-                />
-
-                <select
-                  className="form-control mb-2"
-                  value={cartoesId}
-                  onChange={(e) => setCartoesId(e.target.value)}
-                  required
-                >
-                  <option value="">Cartão</option>
-                  {cartoes.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nome}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  className="form-control mb-2"
-                  value={status}
-                  onChange={(e) => setStatus(e.target.value)}
-                >
-                  <option value="receita">Receita</option>
-                  <option value="despesa">Despesa</option>
-                </select>
-
-                <button className="btn btn-success">
-                  {modoEdicao ? "Salvar Alterações" : "Cadastrar"}
-                </button>
-
-                {modoEdicao && (
-                  <button
-                    type="button"
-                    className="btn btn-secondary mt-2"
-                    onClick={() => {
-                      setModoEdicao(false);
-                      setIdEditando(null);
-                      setMostrarForm(false);
-                    }}
-                  >
-                    Cancelar edição
-                  </button>
-                )}
-              </form>
+              <div className="form-lancamento">
+                <form onSubmit={cadastrar}>
+                  <div className="form-lancamento-grid">
+ 
+                    <div>
+                      <label className="form-label">Data</label>
+                      <input
+                        type="date"
+                        value={form.data}
+                        onChange={setField("data")}
+                        required
+                      />
+                    </div>
+ 
+                    <div>
+                      <label className="form-label">Categoria</label>
+                      <select
+                        value={form.categoria}
+                        onChange={setField("categoria")}
+                        required
+                      >
+                        <option value="">Selecione...</option>
+                        {CATEGORIAS_FIXAS.map((c) => (
+                          <option key={c}>{c}</option>
+                        ))}
+                      </select>
+                    </div>
+ 
+                    <div className="span-2">
+                      <label className="form-label">Descrição</label>
+                      <input
+                        type="text"
+                        placeholder="Ex: Conta de luz"
+                        value={form.descricao}
+                        onChange={setField("descricao")}
+                        required
+                      />
+                    </div>
+ 
+                    <div>
+                      <label className="form-label">Valor</label>
+                      <input
+                        type="number"
+                        placeholder="0,00"
+                        step="0.01"
+                        value={form.valor}
+                        onChange={setField("valor")}
+                        required
+                      />
+                    </div>
+ 
+                    <div>
+                      <label className="form-label">Cartão</label>
+                      <select
+                        value={form.cartoesId}
+                        onChange={setField("cartoesId")}
+                        required
+                      >
+                        <option value="">Selecione...</option>
+                        {cartoes.map((c) => (
+                          <option key={c.id} value={c.id}>{c.nome}</option>
+                        ))}
+                      </select>
+                    </div>
+ 
+                    <div>
+                      <label className="form-label">Tipo</label>
+                      <select value={form.status} onChange={setField("status")}>
+                        <option value="receita">Receita</option>
+                        <option value="despesa">Despesa</option>
+                      </select>
+                    </div>
+ 
+                  </div>
+ 
+                  <div className="form-lancamento-actions">
+                    <button type="submit" className="btn-cadastrar">
+                      {modoEdicao ? "Salvar alterações" : "Cadastrar"}
+                    </button>
+                    <button type="button" className="btn-cancelar" onClick={fecharForm}>
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
+              </div>
             )}
-
+ 
+            {/* ── TABELA DE LANÇAMENTOS ── */}
             <div className="table-wrapper">
               <table className="dvTabela">
                 <thead>
                   <tr>
-                    {modoSelecao && <th></th>}
+                    {modoSelecao && <th />}
                     <th>Data</th>
                     <th>Descrição</th>
                     <th>Categoria</th>
                     <th>Valor</th>
                     <th>Status</th>
-                    <th></th>
                   </tr>
                 </thead>
-
+ 
                 <tbody>
                   {dadosFiltrados.map((item) => (
-                    <tr key={item.id} style={{
-                      backgroundColor: selecionados.includes(item.id)
-                        ? "#ffe5e5"
-                        : "transparent"
-                    }}>
+                    <tr
+                      key={item.id}
+                      className={selecionados.includes(item.id) ? "selecionado" : ""}
+                    >
                       {modoSelecao && (
                         <td>
                           <input
                             type="checkbox"
                             checked={selecionados.includes(item.id)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelecionados([...selecionados, item.id]);
-                              } else {
-                                setSelecionados(selecionados.filter(id => id !== item.id));
-                              }
-                            }}
+                            onChange={(e) =>
+                              setSelecionados((prev) =>
+                                e.target.checked
+                                  ? [...prev, item.id]
+                                  : prev.filter((id) => id !== item.id)
+                              )
+                            }
                           />
                         </td>
                       )}
                       <td>{formatarData(item.data)}</td>
                       <td>{item.descricao}</td>
                       <td>{item.categoria}</td>
+                      <td>{formatarMoeda(Number(item.valorConvertido), moedaGlobal)}</td>
                       <td>
-                        {formatarMoeda(
-                          Number(item.valorConvertido),
-                          simboloMoeda
-                        )}
-                      </td>
-
-                      <td>
-                        {item.status === "receita" ? (
-                          <span className="badge bg-success"> </span>
-                        ) : (
-                          <span className="badge bg-danger"> </span>
-                        )}
+                        <span
+                          className="badge"
+                          style={{
+                            background:
+                              item.status === "receita"
+                                ? "rgba(76,175,80,0.18)"
+                                : "rgba(244,67,54,0.18)",
+                            color:
+                              item.status === "receita"
+                                ? "var(--color-receita)"
+                                : "var(--color-despesa)",
+                          }}
+                        >
+                          {item.status === "receita" ? "Receita" : "Despesa"}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -1014,30 +795,24 @@ function App() {
             </div>
           </div>
         </div>
-
-      {mostrarCartao && (
-        <AddCartao
-          onClose={() => setMostrarCartao(false)}
-          onCreated={carregarCartoes}
-        />
-      )}
-
-      {mostrarRemover && (
-        <RemoverCartao
-          onClose={() => setMostrarRemover(false)}
-          cartoes={cartoes}
-          onDeleted={() => {
-            carregarCartoes();
-            carregarDados();
-          }}
-        />
-      )}
-
+ 
+        {mostrarCartao && (
+          <AddCartao
+            onClose={() => setMostrarCartao(false)}
+            onCreated={carregarCartoes}
+          />
+        )}
+ 
+        {mostrarRemover && (
+          <RemoverCartao
+            onClose={() => setMostrarRemover(false)}
+            cartoes={cartoes}
+            onDeleted={() => { carregarCartoes(); carregarDados(); }}
+          />
+        )}
       </div>
-    
     </>
-
   );
 }
-
+ 
 export default App;
