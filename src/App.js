@@ -539,12 +539,22 @@ function App() {
   }, [anosDisponiveis, anoSelecionado]);
 
   useEffect(() => {
+    const element = tabelaRef.current; // 👈 guarda o valor
+
+    if (!element) return;
+
     const observer = new IntersectionObserver(
-      ([entry]) => { setMostrarHeaderTabela(entry.isIntersecting); },
+      ([entry]) => {
+        setMostrarHeaderTabela(entry.isIntersecting);
+      },
       { threshold: 0.2 }
     );
-    if (tabelaRef.current) observer.observe(tabelaRef.current);
-    return () => { if (tabelaRef.current) observer.unobserve(tabelaRef.current); };
+
+    observer.observe(element);
+
+    return () => {
+      observer.unobserve(element); // 👈 usa a mesma referência
+    };
   }, []);
 
   // ── formulário ───────────────────────────────────────────────────────────
