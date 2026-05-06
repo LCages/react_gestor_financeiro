@@ -57,7 +57,7 @@ function App() {
 
     async function carregarTudo() {
       const tempoMinimo = new Promise((resolve) =>
-        setTimeout(resolve, 20000) // 20 segundos
+        setTimeout(resolve, 20000)
       );
 
       const carregarAPI = Promise.all([
@@ -71,7 +71,7 @@ function App() {
     }
 
     carregarTudo();
-  }, [usuario]);
+  }, [usuario, carregarCartoes, carregarDados]);
 
   useEffect(() => {
     const handleResize = () => {
