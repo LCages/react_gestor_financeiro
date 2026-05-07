@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./App.css";
 import AddCartao from "./AddCartao";
@@ -10,7 +10,7 @@ import API_URL from "./config";
 import Auth from "./Auth";
 import { apiFetch } from "./config";
 import LoadingOverlay from "./LoadingOverlay";
-import { useRef } from "react";
+import OnboardingOverlay from "./OnboardingOverlay";
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -91,54 +91,19 @@ function Toast({ mensagem, tipo = "sucesso", onClose }) {
 
   return (
     <div style={{
-      position:       "fixed",
-      bottom:         28,
-      right:          28,
-      zIndex:         9999,
-      display:        "flex",
-      alignItems:     "center",
-      gap:            10,
-      padding:        "13px 18px",
-      borderRadius:   14,
-      background:     c.bg,
-      border:         `1px solid ${c.border}`,
-      backdropFilter: "blur(14px)",
-      boxShadow:      "0 8px 32px rgba(0,0,0,0.35)",
-      color:          "#fff",
-      fontFamily:     "var(--font)",
-      fontSize:       "var(--font-md)",
-      fontWeight:     600,
-      animation:      "toastIn 0.3s ease",
-      minWidth:       200,
-      maxWidth:       340,
+      position: "fixed", bottom: 28, right: 28, zIndex: 9999,
+      display: "flex", alignItems: "center", gap: 10,
+      padding: "13px 18px", borderRadius: 14,
+      background: c.bg, border: `1px solid ${c.border}`,
+      backdropFilter: "blur(14px)", boxShadow: "0 8px 32px rgba(0,0,0,0.35)",
+      color: "#fff", fontFamily: "var(--font)", fontSize: "var(--font-md)",
+      fontWeight: 600, minWidth: 200, maxWidth: 340,
     }}>
-      <span style={{
-        display:         "flex",
-        alignItems:      "center",
-        justifyContent:  "center",
-        width:           24,
-        height:          24,
-        borderRadius:    "50%",
-        background:      "rgba(255,255,255,0.18)",
-        fontSize:        13,
-        flexShrink:      0,
-      }}>
+      <span style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, borderRadius: "50%", background: "rgba(255,255,255,0.18)", fontSize: 13, flexShrink: 0 }}>
         {c.icon}
       </span>
       <span style={{ flex: 1 }}>{mensagem}</span>
-      <button
-        onClick={onClose}
-        style={{
-          background: "none",
-          border:     "none",
-          color:      "rgba(255,255,255,0.65)",
-          cursor:     "pointer",
-          fontSize:   18,
-          padding:    0,
-          lineHeight: 1,
-          flexShrink: 0,
-        }}
-      >×</button>
+      <button onClick={onClose} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.65)", cursor: "pointer", fontSize: 18, padding: 0, lineHeight: 1, flexShrink: 0 }}>×</button>
     </div>
   );
 }
@@ -148,119 +113,69 @@ function Toast({ mensagem, tipo = "sucesso", onClose }) {
 function Paginacao({ pagina, totalPaginas, onChange }) {
   if (totalPaginas <= 1) return null;
 
-  // janela de até 5 páginas em torno da atual
-  const inicio    = Math.max(1, pagina - 2);
-  const fim       = Math.min(totalPaginas, pagina + 2);
-  const visiveis  = Array.from({ length: fim - inicio + 1 }, (_, i) => inicio + i);
+  const inicio   = Math.max(1, pagina - 2);
+  const fim      = Math.min(totalPaginas, pagina + 2);
+  const visiveis = Array.from({ length: fim - inicio + 1 }, (_, i) => inicio + i);
 
   const btnBase = {
-    height:       "var(--btn-h)",
-    minWidth:     36,
-    padding:      "0 10px",
-    borderRadius: "var(--btn-radius)",
-    border:       "1px solid transparent",
-    background:   "transparent",
-    color:        "var(--color-text)",
-    fontFamily:   "var(--font)",
-    fontSize:     "var(--font-sm)",
-    fontWeight:   600,
-    cursor:       "pointer",
-    transition:   "background 0.15s, border 0.15s, transform 0.12s",
+    height: "var(--btn-h)", minWidth: 36, padding: "0 10px",
+    borderRadius: "var(--btn-radius)", border: "1px solid transparent",
+    background: "transparent", color: "var(--color-text)",
+    fontFamily: "var(--font)", fontSize: "var(--font-sm)", fontWeight: 600,
+    cursor: "pointer", transition: "background 0.15s, border 0.15s",
   };
 
   return (
     <div style={{
-      display:        "flex",
-      alignItems:     "center",
-      justifyContent: "center",
-      gap:            5,
-      marginTop:      20,
-      flexWrap:       "wrap",
-      padding:        "4px",
-      borderRadius:   "var(--btn-radius)",
-      border:         "var(--glass-border)",
-      background:     "rgba(255,255,255,0.04)",
-      backdropFilter: "var(--glass-blur)",
-      boxShadow:      "var(--glass-shadow-in)",
-      width:          "fit-content",
-      marginLeft:     "auto",
-      marginRight:    "auto",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      gap: 5, marginTop: 20, flexWrap: "wrap", padding: "4px",
+      borderRadius: "var(--btn-radius)", border: "var(--glass-border)",
+      background: "rgba(255,255,255,0.04)", backdropFilter: "var(--glass-blur)",
+      boxShadow: "var(--glass-shadow-in)", width: "fit-content",
+      marginLeft: "auto", marginRight: "auto",
     }}>
-
-      {/* Anterior */}
-      <button
-        style={{ ...btnBase, opacity: pagina === 1 ? 0.3 : 1, cursor: pagina === 1 ? "not-allowed" : "pointer" }}
-        disabled={pagina === 1}
-        onClick={() => onChange(pagina - 1)}
+      <button style={{ ...btnBase, opacity: pagina === 1 ? 0.3 : 1, cursor: pagina === 1 ? "not-allowed" : "pointer" }}
+        disabled={pagina === 1} onClick={() => onChange(pagina - 1)}
         onMouseEnter={e => { if (pagina !== 1) e.currentTarget.style.background = "var(--btn-hover-bg)"; }}
         onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
       >‹</button>
 
-      {/* Primeira página + ellipsis */}
       {inicio > 1 && (
         <>
-          <button
-            style={btnBase}
-            onClick={() => onChange(1)}
+          <button style={btnBase} onClick={() => onChange(1)}
             onMouseEnter={e => { e.currentTarget.style.background = "var(--btn-hover-bg)"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
           >1</button>
-          {inicio > 2 && (
-            <span style={{ color: "var(--color-muted)", fontSize: "var(--font-sm)", padding: "0 2px" }}>…</span>
-          )}
+          {inicio > 2 && <span style={{ color: "var(--color-muted)", fontSize: "var(--font-sm)", padding: "0 2px" }}>…</span>}
         </>
       )}
 
-      {/* Páginas visíveis */}
       {visiveis.map((p) => (
-        <button
-          key={p}
-          style={{
-            ...btnBase,
-            background: p === pagina ? "var(--btn-active-bg)" : "transparent",
-            border:     p === pagina ? "var(--btn-active-border)" : "1px solid transparent",
-          }}
+        <button key={p}
+          style={{ ...btnBase, background: p === pagina ? "var(--btn-active-bg)" : "transparent", border: p === pagina ? "var(--btn-active-border)" : "1px solid transparent" }}
           onClick={() => onChange(p)}
           onMouseEnter={e => { if (p !== pagina) e.currentTarget.style.background = "var(--btn-hover-bg)"; }}
           onMouseLeave={e => { if (p !== pagina) e.currentTarget.style.background = "transparent"; }}
-        >
-          {p}
-        </button>
+        >{p}</button>
       ))}
 
-      {/* Ellipsis + última página */}
       {fim < totalPaginas && (
         <>
-          {fim < totalPaginas - 1 && (
-            <span style={{ color: "var(--color-muted)", fontSize: "var(--font-sm)", padding: "0 2px" }}>…</span>
-          )}
-          <button
-            style={btnBase}
-            onClick={() => onChange(totalPaginas)}
+          {fim < totalPaginas - 1 && <span style={{ color: "var(--color-muted)", fontSize: "var(--font-sm)", padding: "0 2px" }}>…</span>}
+          <button style={btnBase} onClick={() => onChange(totalPaginas)}
             onMouseEnter={e => { e.currentTarget.style.background = "var(--btn-hover-bg)"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
           >{totalPaginas}</button>
         </>
       )}
 
-      {/* Próximo */}
-      <button
-        style={{ ...btnBase, opacity: pagina === totalPaginas ? 0.3 : 1, cursor: pagina === totalPaginas ? "not-allowed" : "pointer" }}
-        disabled={pagina === totalPaginas}
-        onClick={() => onChange(pagina + 1)}
+      <button style={{ ...btnBase, opacity: pagina === totalPaginas ? 0.3 : 1, cursor: pagina === totalPaginas ? "not-allowed" : "pointer" }}
+        disabled={pagina === totalPaginas} onClick={() => onChange(pagina + 1)}
         onMouseEnter={e => { if (pagina !== totalPaginas) e.currentTarget.style.background = "var(--btn-hover-bg)"; }}
         onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}
       >›</button>
 
-      {/* Contador */}
-      <span style={{
-        color:      "var(--color-muted)",
-        fontSize:   "var(--font-sm)",
-        padding:    "0 6px",
-        borderLeft: "1px solid rgba(255,255,255,0.1)",
-        marginLeft: 2,
-        whiteSpace: "nowrap",
-      }}>
+      <span style={{ color: "var(--color-muted)", fontSize: "var(--font-sm)", padding: "0 6px", borderLeft: "1px solid rgba(255,255,255,0.1)", marginLeft: 2, whiteSpace: "nowrap" }}>
         {pagina} / {totalPaginas}
       </span>
     </div>
@@ -286,6 +201,31 @@ function App() {
   const [mostrarCambio,       setMostrarCambio]       = useState(false);
   const tabelaRef                                     = useRef(null);
   const [mostrarHeaderTabela, setMostrarHeaderTabela] = useState(false);
+
+  // ── onboarding ─────────────────────────────────────────────────────────────
+  //
+  // stepOnboarding:
+  //   null → desativado (app rodando normalmente)
+  //   1    → spotlight no botão "Adicionar" do header (cartão)
+  //   2    → frame sobre o modal AddCartao aberto
+  //   3    → spotlight no botão "Adicionar" de lançamento
+  //   4    → frame sobre o formulário de lançamento aberto
+  //
+  const [stepOnboarding, setStepOnboarding] = useState(null);
+
+  // refs dos elementos destacados
+  const btnAdicionarCartaoRef = useRef(null); // botão "Adicionar" no header     (step 1)
+  const modalAddCartaoRef     = useRef(null); // container do modal AddCartao     (step 2)
+  const btnAdicionarLancRef   = useRef(null); // botão "Adicionar" lançamentos    (step 3)
+  const formLancamentoRef     = useRef(null); // container do form lançamento     (step 4)
+
+  // qual ref usar no overlay, por step
+  const onboardingTargetRef = {
+    1: btnAdicionarCartaoRef,
+    2: modalAddCartaoRef,
+    3: btnAdicionarLancRef,
+    4: formLancamentoRef,
+  }[stepOnboarding] ?? null;
 
   // toast
   const [toast, setToast] = useState(null);
@@ -363,6 +303,7 @@ function App() {
     setDados([]);
     setCartoes([]);
     setCartaoAtivo(null);
+    setStepOnboarding(null);
   }
 
   // ── API: taxas de câmbio ──────────────────────────────────────────────────
@@ -374,16 +315,12 @@ function App() {
         const passado = new Date();
         passado.setDate(hoje.getDate() - 3);
         const fmt = (d) => d.toISOString().split("T")[0];
-        const res  = await fetch(
-          `https://api.frankfurter.dev/v1/${fmt(passado)}..${fmt(hoje)}?from=EUR&to=BRL,USD`
-        );
+        const res  = await fetch(`https://api.frankfurter.dev/v1/${fmt(passado)}..${fmt(hoje)}?from=EUR&to=BRL,USD`);
         const data = await res.json();
         const ultima = Object.keys(data.rates).pop();
         const rates  = data.rates[ultima];
         setTaxas({ EUR: 1, BRL: rates.BRL, USD: rates.USD });
-      } catch (err) {
-        console.error(err);
-      }
+      } catch (err) { console.error(err); }
     }
     carregarTaxas();
   }, []);
@@ -398,9 +335,7 @@ function App() {
       const data = await res.json();
       setDados(data.dados || []);
       setPaginaAtual(1);
-    } catch (err) {
-      console.error(err);
-    }
+    } catch (err) { console.error(err); }
   }, [cartaoAtivo]);
 
   const carregarCartoes = useCallback(async () => {
@@ -413,21 +348,38 @@ function App() {
         const existe = lista.find((c) => c.id === cartaoAtivo);
         if (!existe) setCartaoAtivo(lista[0].id);
       }
+      return lista;
     } catch (err) {
       console.error(err);
       setCartoes([]);
+      return [];
     }
   }, [cartaoAtivo]);
 
+  // carregamento inicial após login
   useEffect(() => {
     if (!usuario) return;
     async function carregarTudo() {
       const tempoMinimo = new Promise((r) => setTimeout(r, 20000));
-      await Promise.all([tempoMinimo, carregarCartoes(), carregarDados()]);
+      const [lista] = await Promise.all([carregarCartoes(), carregarDados(), tempoMinimo]);
       setLoadingInicial(false);
+
+      const listaFinal = Array.isArray(lista) ? lista : [];
+      if (listaFinal.length === 0) {
+        // Novo usuário sem cartão → começa no step 1
+        setStepOnboarding(1);
+      }
     }
     carregarTudo();
   }, [usuario]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Se tem cartão mas sem lançamentos e onboarding ativo → step 3
+  useEffect(() => {
+    if (loadingInicial) return;
+    if (cartoes.length > 0 && dados.length === 0 && stepOnboarding !== null && stepOnboarding < 3) {
+      setStepOnboarding(3);
+    }
+  }, [cartoes, dados, loadingInicial]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { carregarCartoes(); }, [carregarCartoes]);
 
@@ -486,19 +438,14 @@ function App() {
     .reduce((acc, i) => acc + Number(i.valorConvertido), 0);
 
   const saldoTotal = dadosConvertidos.reduce(
-    (acc, i) =>
-      i.status === "receita"
-        ? acc + Number(i.valorConvertido)
-        : acc - Number(i.valorConvertido),
+    (acc, i) => i.status === "receita" ? acc + Number(i.valorConvertido) : acc - Number(i.valorConvertido),
     0
   );
 
-  // busca completa
   const dadosFiltrados = dadosConvertidos.filter((item) =>
     item.descricao?.toLowerCase().includes(busca.toLowerCase())
   );
 
-  // paginação
   const totalPaginas = Math.max(1, Math.ceil(dadosFiltrados.length / ITENS_POR_PAGINA));
   const paginaSegura = Math.min(paginaAtual, totalPaginas);
   const dadosPagina  = dadosFiltrados.slice(
@@ -506,7 +453,6 @@ function App() {
     paginaSegura * ITENS_POR_PAGINA
   );
 
-  // volta para pág 1 ao buscar
   useEffect(() => { setPaginaAtual(1); }, [busca]);
 
   const dadosDoAno = dadosConvertidos.filter((item) => {
@@ -539,22 +485,14 @@ function App() {
   }, [anosDisponiveis, anoSelecionado]);
 
   useEffect(() => {
-    const element = tabelaRef.current; // 👈 guarda o valor
-
+    const element = tabelaRef.current;
     if (!element) return;
-
     const observer = new IntersectionObserver(
-      ([entry]) => {
-        setMostrarHeaderTabela(entry.isIntersecting);
-      },
+      ([entry]) => { setMostrarHeaderTabela(entry.isIntersecting); },
       { threshold: 0.2 }
     );
-
     observer.observe(element);
-
-    return () => {
-      observer.unobserve(element); // 👈 usa a mesma referência
-    };
+    return () => { observer.unobserve(element); };
   }, []);
 
   // ── formulário ───────────────────────────────────────────────────────────
@@ -607,6 +545,8 @@ function App() {
       setModoSelecao(false);
       carregarDados();
       dispararToast(modoEdicao ? "Lançamento atualizado!" : "Lançamento salvo!");
+      // Conclui onboarding ao salvar o primeiro lançamento
+      if (stepOnboarding === 4 || stepOnboarding === 3) setStepOnboarding(null);
     } catch (err) {
       console.error(err);
       dispararToast("Erro ao salvar lançamento.", "erro");
@@ -632,6 +572,30 @@ function App() {
     }
   }
 
+  // ── handlers onboarding ──────────────────────────────────────────────────
+
+  // Clicou no spotlight ou no botão de ação principal do balão
+  function handleOnboardingDismiss() {
+    if (stepOnboarding === 1) {
+      // Abre o modal de criar cartão → avança para step 2
+      if (cartoes.length >= 3) { alert("Limite de 3 cartões atingido."); return; }
+      setMostrarCartao(true);
+      setStepOnboarding(2);
+    } else if (stepOnboarding === 3) {
+      // Abre o formulário de lançamento → avança para step 4
+      setMostrarForm(true);
+      setStepOnboarding(4);
+      setTimeout(() => {
+        tabelaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 120);
+    }
+  }
+
+  // Clicou em "Mais tarde" (steps 1 e 3)
+  function handleOnboardingSkip() {
+    setStepOnboarding(null);
+  }
+
   // ── render ────────────────────────────────────────────────────────────────
 
   if (!usuario) return <Auth onLogin={setUsuario} />;
@@ -640,12 +604,18 @@ function App() {
     <>
       {loadingInicial && <LoadingOverlay nome={usuario?.nome} />}
 
-      {toast && (
-        <Toast
-          mensagem={toast.mensagem}
-          tipo={toast.tipo}
-          onClose={() => setToast(null)}
+      {/* ── ONBOARDING ── */}
+      {!loadingInicial && stepOnboarding !== null && onboardingTargetRef && (
+        <OnboardingOverlay
+          step={stepOnboarding}
+          targetRef={onboardingTargetRef}
+          onDismiss={handleOnboardingDismiss}
+          onSkip={handleOnboardingSkip}
         />
+      )}
+
+      {toast && (
+        <Toast mensagem={toast.mensagem} tipo={toast.tipo} onClose={() => setToast(null)} />
       )}
 
       <div>
@@ -656,11 +626,7 @@ function App() {
             <div className="header-left">
               <div className="currency-buttons">
                 {["BRL", "USD", "EUR"].map((m) => (
-                  <button
-                    key={m}
-                    className={moedaGlobal === m ? "active" : ""}
-                    onClick={() => setMoedaGlobal(m)}
-                  >
+                  <button key={m} className={moedaGlobal === m ? "active" : ""} onClick={() => setMoedaGlobal(m)}>
                     {m === "BRL" ? "Real" : m === "USD" ? "Dollar" : "Euro"}
                   </button>
                 ))}
@@ -672,10 +638,7 @@ function App() {
             {!isMobile ? (
               <ul>
                 <li>
-                  <button
-                    className={cartaoAtivo === "todos" ? "active" : ""}
-                    onClick={() => setCartaoAtivo("todos")}
-                  >
+                  <button className={cartaoAtivo === "todos" ? "active" : ""} onClick={() => setCartaoAtivo("todos")}>
                     Consolidado
                   </button>
                 </li>
@@ -685,29 +648,26 @@ function App() {
                     <button
                       className={cartaoAtivo === c.id ? "active" : ""}
                       onClick={() => setCartaoAtivo(c.id)}
-                      style={
-                        cartaoAtivo === c.id && c.cor
-                          ? { borderColor: `${c.cor}55`, background: `${c.cor}22`, boxShadow: `0 0 10px ${c.cor}44` }
-                          : {}
+                      style={cartaoAtivo === c.id && c.cor
+                        ? { borderColor: `${c.cor}55`, background: `${c.cor}22`, boxShadow: `0 0 10px ${c.cor}44` }
+                        : {}
                       }
                     >
-                      {c.cor && (
-                        <span style={{
-                          display: "inline-block", width: 8, height: 8,
-                          borderRadius: "50%", background: c.cor, marginRight: 6, flexShrink: 0,
-                        }} />
-                      )}
+                      {c.cor && <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: c.cor, marginRight: 6, flexShrink: 0 }} />}
                       {c.nome}
                     </button>
                   </li>
                 ))}
 
+                {/* ← ref step 1: spotlight aqui */}
                 <li>
                   <button
+                    ref={btnAdicionarCartaoRef}
                     className="action-btn"
                     onClick={() => {
                       if (cartoes.length >= 3) { alert("Limite de 3 cartões atingido."); return; }
                       setMostrarCartao(true);
+                      if (stepOnboarding === 1) setStepOnboarding(2);
                     }}
                   >
                     Adicionar
@@ -715,9 +675,7 @@ function App() {
                 </li>
 
                 <li>
-                  <button className="action-btn" onClick={() => setMostrarRemover(true)}>
-                    Remover
-                  </button>
+                  <button className="action-btn" onClick={() => setMostrarRemover(true)}>Remover</button>
                 </li>
               </ul>
             ) : (
@@ -730,17 +688,19 @@ function App() {
                   }}
                 >
                   <option value="todos">Consolidado</option>
-                  {cartoes.map((c) => (
-                    <option key={c.id} value={c.id}>{c.nome}</option>
-                  ))}
+                  {cartoes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
                 </select>
-
                 <ul>
                   <li>
-                    <button className="action-btn" onClick={() => {
-                      if (cartoes.length >= 3) { alert("Limite de 3 cartões atingido."); return; }
-                      setMostrarCartao(true);
-                    }}>Adicionar</button>
+                    <button
+                      ref={stepOnboarding === 1 ? btnAdicionarCartaoRef : undefined}
+                      className="action-btn"
+                      onClick={() => {
+                        if (cartoes.length >= 3) { alert("Limite de 3 cartões atingido."); return; }
+                        setMostrarCartao(true);
+                        if (stepOnboarding === 1) setStepOnboarding(2);
+                      }}
+                    >Adicionar</button>
                   </li>
                   <li>
                     <button className="action-btn" onClick={() => setMostrarRemover(true)}>Remover</button>
@@ -755,16 +715,11 @@ function App() {
           </div>
         </header>
 
-        {/* moeda no mobile */}
         {isMobile && (
           <div className="mobile-currency-wrapper">
             <div className="currency-buttons">
               {["BRL", "USD", "EUR"].map((m) => (
-                <button
-                  key={m}
-                  className={moedaGlobal === m ? "active" : ""}
-                  onClick={() => setMoedaGlobal(m)}
-                >
+                <button key={m} className={moedaGlobal === m ? "active" : ""} onClick={() => setMoedaGlobal(m)}>
                   {m === "BRL" ? "Real" : m === "USD" ? "Dollar" : "Euro"}
                 </button>
               ))}
@@ -799,7 +754,6 @@ function App() {
                     <button className={!mostrarCambio ? "active" : ""} onClick={() => setMostrarCambio(false)}>Mensal</button>
                     <button className={mostrarCambio ? "active" : ""} onClick={() => setMostrarCambio(true)}>Câmbio</button>
                   </div>
-
                   {!mostrarCambio && (
                     <div className="button-mm-yy">
                       <select value={anoSelecionado} onChange={(e) => setAnoSelecionado(Number(e.target.value))}>
@@ -814,7 +768,6 @@ function App() {
                     </div>
                   )}
                 </div>
-
                 {mostrarCambio
                   ? <CambioChart />
                   : <FinanceChart dados={dadosDoAno} moeda={moedaGlobal} isMobile={isMobile} semestre={semestre} />
@@ -889,7 +842,17 @@ function App() {
                 onChange={(e) => setBusca(e.target.value)}
               />
               <div className="actions-buttons">
-                <button onClick={abrirFormNovo}>
+                {/* ← ref step 3: spotlight aqui */}
+                <button
+                  ref={btnAdicionarLancRef}
+                  onClick={() => {
+                    abrirFormNovo();
+                    // Se estava no step 3, avança para step 4 ao abrir o form
+                    if (stepOnboarding === 3) {
+                      setStepOnboarding(4);
+                    }
+                  }}
+                >
                   {mostrarForm && !modoEdicao ? "Fechar" : "Adicionar"}
                 </button>
                 <button
@@ -903,9 +866,9 @@ function App() {
               </div>
             </div>
 
-            {/* formulário slidedown */}
+            {/* ← ref step 4: frame ao redor do form */}
             {mostrarForm && (
-              <div className="form-lancamento">
+              <div ref={formLancamentoRef} className="form-lancamento">
                 <form onSubmit={cadastrar}>
                   <div className="form-lancamento-grid">
                     <div>
@@ -1002,13 +965,10 @@ function App() {
                         <td>{item.categoria}</td>
                         <td>{formatarMoeda(Number(item.valorConvertido), moedaGlobal)}</td>
                         <td>
-                          <span
-                            className="badge"
-                            style={{
-                              background: item.status === "receita" ? "rgba(76,175,80,0.18)" : "rgba(244,67,54,0.18)",
-                              color:      item.status === "receita" ? "var(--color-receita)" : "var(--color-despesa)",
-                            }}
-                          >
+                          <span className="badge" style={{
+                            background: item.status === "receita" ? "rgba(76,175,80,0.18)" : "rgba(244,67,54,0.18)",
+                            color:      item.status === "receita" ? "var(--color-receita)" : "var(--color-despesa)",
+                          }}>
                             {item.status === "receita" ? "Receita" : "Despesa"}
                           </span>
                         </td>
@@ -1019,7 +979,6 @@ function App() {
               </table>
             </div>
 
-            {/* paginação */}
             <Paginacao
               pagina={paginaSegura}
               totalPaginas={totalPaginas}
@@ -1037,9 +996,30 @@ function App() {
           </div>
         </div>
 
+        {/* ← ref step 2: frame ao redor do modal AddCartao */}
         {mostrarCartao && (
-          <AddCartao onClose={() => setMostrarCartao(false)} onCreated={carregarCartoes} />
+          <div ref={modalAddCartaoRef} style={{ position: "fixed", inset: 0, zIndex: stepOnboarding === 2 ? 3500 : 2000, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <AddCartao
+              onClose={() => {
+                setMostrarCartao(false);
+                // Se fechou sem criar → volta para step 1
+                if (stepOnboarding === 2 && cartoes.length === 0) setStepOnboarding(1);
+              }}
+              onCreated={async () => {
+                const lista = await carregarCartoes();
+                setMostrarCartao(false);
+                // Criou o primeiro cartão → avança para step 3
+                if (stepOnboarding === 2 && lista && lista.length > 0) {
+                  setStepOnboarding(3);
+                  setTimeout(() => {
+                    tabelaRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }, 400);
+                }
+              }}
+            />
+          </div>
         )}
+
         {mostrarRemover && (
           <RemoverCartao
             onClose={() => setMostrarRemover(false)}
