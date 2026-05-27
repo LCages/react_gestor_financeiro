@@ -25,11 +25,11 @@
   --btn-px:     clamp(10px, 2vw, 18px);
   --btn-radius: 30px;
  
-  --color-receita: #4CAF50;
-  --color-despesa: #f44336;
-  --color-saldo:   #2196F3;
-  --color-text:    #e8eaf0;
-  --color-muted:   #8b93a5;
+  --color-receita:       #4CAF50;
+  --color-despesa:       #f44336;
+  --color-saldo:         #2196F3;
+  --color-text:          #e8eaf0;
+  --color-muted:         #8b93a5;
  
   /* inputs */
   --input-bg:      rgba(255, 255, 255, 0.06);

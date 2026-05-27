@@ -36,7 +36,7 @@ function formatarData(dataISO) {
 
 const CATEGORIAS_FIXAS = [
   "Moradia", "Mercado", "Restaurante", "Transporte",
-  "Saúde", "Assinaturas", "Compras", "Passeio", "Salário", "Adiantamento", "Outros",
+  "Saúde", "Assinaturas", "Compras", "Passeio", "Salário", "Adiantamento", "Transferencia", "Outros",
 ];
 
 const FORM_VAZIO = {
@@ -430,17 +430,22 @@ function App() {
   });
 
   const receitasConvertidas = dadosFiltradosPeriodo
-    .filter((i) => i.status === "receita")
+    .filter((i) => i.status === "receita" && i.categoria !== "Adiantamento" && i.categoria !== "Transferencia")
     .reduce((acc, i) => acc + Number(i.valorConvertido), 0);
 
   const despesasConvertidas = dadosFiltradosPeriodo
-    .filter((i) => i.status === "despesa")
+    .filter((i) => i.status === "despesa" && i.categoria !== "Adiantamento" && i.categoria !== "Transferencia")
     .reduce((acc, i) => acc + Number(i.valorConvertido), 0);
 
   const saldoTotal = dadosConvertidos.reduce((acc, i) => {
 
     // ignora adiantamentos
     if (i.categoria === "Adiantamento") {
+      return acc;
+    }
+
+    // ignora transferências
+    if (i.categoria === "Transferencia") {
       return acc;
     }
 
