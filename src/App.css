@@ -1120,7 +1120,7 @@ body.theme-light .tabela-categorias tbody tr:nth-child(odd)  { background: rgba(
   height: 100%;
   width: 0%;
   background: #4CAF50;
-  animation: loadingAnim 20s linear forwards;
+  animation: loadingAnim 5s linear forwards;
 }
  
 @keyframes loadingAnim {

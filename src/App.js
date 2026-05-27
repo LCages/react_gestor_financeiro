@@ -444,11 +444,6 @@ function App() {
       return acc;
     }
 
-    // ignora transferências
-    if (i.categoria === "Transferencia") {
-      return acc;
-    }
-
     if (i.status === "receita") {
       return acc + Number(i.valorConvertido);
     }

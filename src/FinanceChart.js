@@ -36,9 +36,10 @@ function FinanceChart({ dados, isMobile, semestre }) {
 
       if (mesNumero < 0 || mesNumero > 11) return;
 
-      if (item.status === "receita") {
+      if (item.status === "receita" && item.categoria !== "Adiantamento" && item.categoria !== "Transferencia") {
         resumo[mesNumero].receita += valor;
-      } else {
+      } 
+      else if (item.status === "despesa" && item.categoria !== "Adiantamento" && item.categoria !== "Transferencia") {
         resumo[mesNumero].despesa += valor;
       }
     });
