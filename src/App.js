@@ -36,7 +36,7 @@ function formatarData(dataISO) {
 
 const CATEGORIAS_FIXAS = [
   "Moradia", "Mercado", "Restaurante", "Transporte",
-  "Saúde", "Assinaturas", "Compras", "Passeio", "Salário", "Outros",
+  "Saúde", "Assinaturas", "Compras", "Passeio", "Salário", "Adiantamento", "Outros",
 ];
 
 const FORM_VAZIO = {
@@ -437,10 +437,44 @@ function App() {
     .filter((i) => i.status === "despesa")
     .reduce((acc, i) => acc + Number(i.valorConvertido), 0);
 
-  const saldoTotal = dadosConvertidos.reduce(
-    (acc, i) => i.status === "receita" ? acc + Number(i.valorConvertido) : acc - Number(i.valorConvertido),
-    0
-  );
+  const saldoTotal = dadosConvertidos.reduce((acc, i) => {
+
+    // ignora adiantamentos
+    if (i.categoria === "Adiantamento") {
+      return acc;
+    }
+
+    if (i.status === "receita") {
+      return acc + Number(i.valorConvertido);
+    }
+
+    if (i.status === "despesa") {
+      return acc - Number(i.valorConvertido);
+    }
+
+    return acc;
+
+  }, 0);
+
+
+  const saldoAdiantamento = dadosConvertidos.reduce((acc, i) => {
+
+    // considera somente adiantamentos
+    if (i.categoria !== "Adiantamento") {
+      return acc;
+    }
+
+    if (i.status === "receita") {
+      return acc - Number(i.valorConvertido);
+    }
+
+    if (i.status === "despesa") {
+      return acc + Number(i.valorConvertido);
+    }
+
+    return acc;
+
+  }, 0);
 
   const dadosFiltrados = dadosConvertidos.filter((item) =>
     item.descricao?.toLowerCase().includes(busca.toLowerCase())
@@ -732,20 +766,30 @@ function App() {
 
             {/* cards */}
             <div className="left">
+
               <div className="box saldo">
                 <strong>Saldo</strong>
                 <span>{formatarMoeda(saldoTotal, moedaGlobal)}</span>
               </div>
+
+              <div className="box-adiantamento">
+                <strong>Adiantamento</strong>
+                <span>
+                  {formatarMoeda(saldoAdiantamento, moedaGlobal)}
+                </span>
+              </div>
+
               <div className="box receita">
                 <strong>Receitas</strong>
                 <span>{formatarMoeda(receitasConvertidas, moedaGlobal)}</span>
               </div>
+
               <div className="box despesa">
                 <strong>Despesas</strong>
                 <span>{formatarMoeda(Math.abs(despesasConvertidas), moedaGlobal)}</span>
               </div>
-            </div>
 
+            </div>
             {/* gráficos */}
             <div className="right">
               <div className="top">
