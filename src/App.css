@@ -219,11 +219,19 @@ h1 { font-weight: 700; margin-bottom: 10px; color: var(--color-text); }
   padding: 0;
   flex-wrap: nowrap;
 }
+
+.header ul li {
+  flex-shrink: 0;
+  display: flex;
+}
  
 .header button {
   height: var(--btn-h);
   padding: 0 var(--btn-px);
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
   border-radius: var(--btn-radius);
   border: 1px solid transparent;
   background: transparent;
