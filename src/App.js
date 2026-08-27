@@ -193,6 +193,7 @@ function App() {
   const [taxas, setTaxas]                   = useState({});
   const [moedaGlobal, setMoedaGlobal]       = useState("BRL");
   const [busca, setBusca]                   = useState("");
+  const [categoriaFiltro, setCategoriaFiltro] = useState("todas");
 
   // UI toggles
   const [mostrarCartao,       setMostrarCartao]       = useState(false);
@@ -476,9 +477,11 @@ function App() {
 
   }, 0);
 
-  const dadosFiltrados = dadosConvertidos.filter((item) =>
-    item.descricao?.toLowerCase().includes(busca.toLowerCase())
-  );
+  const dadosFiltrados = dadosConvertidos.filter((item) => {
+    const correspondeBusca     = item.descricao?.toLowerCase().includes(busca.toLowerCase());
+    const correspondeCategoria = categoriaFiltro === "todas" || item.categoria === categoriaFiltro;
+    return correspondeBusca && correspondeCategoria;
+  });
 
   const totalPaginas = Math.max(1, Math.ceil(dadosFiltrados.length / ITENS_POR_PAGINA));
   const paginaSegura = Math.min(paginaAtual, totalPaginas);
@@ -487,7 +490,7 @@ function App() {
     paginaSegura * ITENS_POR_PAGINA
   );
 
-  useEffect(() => { setPaginaAtual(1); }, [busca]);
+  useEffect(() => { setPaginaAtual(1); }, [busca, categoriaFiltro]);
 
   const dadosDoAno = dadosConvertidos.filter((item) => {
     if (!item.data) return false;
@@ -879,12 +882,26 @@ function App() {
           <div className="box-tabela-search" ref={tabelaRef}>
 
             <div className="dvSearch">
-              <input
-                type="text"
-                placeholder="Buscar..."
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-              />
+              <div className="dvSearch-filtros">
+                <input
+                  type="text"
+                  placeholder="Buscar..."
+                  value={busca}
+                  onChange={(e) => setBusca(e.target.value)}
+                />
+                <div className="button-mm-yy categoria-filtro">
+                  <select
+                    value={categoriaFiltro}
+                    onChange={(e) => setCategoriaFiltro(e.target.value)}
+                    aria-label="Filtrar por categoria"
+                  >
+                    <option value="todas">Todas as categorias</option>
+                    {CATEGORIAS_FIXAS.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               <div className="actions-buttons">
                 {/* ← ref step 3: spotlight aqui */}
                 <button

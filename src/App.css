@@ -622,10 +622,30 @@ form select option {
   border: var(--input-focus-border);
   box-shadow: var(--input-focus-shadow);
 }
- 
+
+/* grupo: busca + filtro de categoria */
+.dvSearch-filtros {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.categoria-filtro {
+  flex-shrink: 0;
+  margin-bottom: 0;
+}
+
+.categoria-filtro select {
+  min-width: 170px;
+}
+
 @media (max-width: 768px) {
   .dvSearch { flex-direction: column; align-items: stretch; }
   .dvSearch input { width: 100%; }
+  .dvSearch-filtros { flex-direction: column; align-items: stretch; width: 100%; }
+  .categoria-filtro select { width: 100%; min-width: 0; }
 }
  
 /* FORMULÁRIO INLINE */
