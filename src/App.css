@@ -825,6 +825,26 @@ body.theme-light .tabela-categorias tbody tr:nth-child(odd)  { background: rgba(
 /* BADGES */
  
 .badge { padding: 4px 10px; font-size: 11px; font-weight: 600; border-radius: 8px; }
+
+/* coluna "Cartão" da tabela de lançamentos (identificação do cartão usado, modo Consolidado) */
+.dvTabela td.td-status {
+  padding-right: 6px;
+}
+
+.dvTabela th.th-cartao,
+.dvTabela td.td-cartao {
+  text-align: center;
+  padding-left: 6px;
+}
+
+.dvTabela td.td-cartao {
+  white-space: nowrap;
+}
+
+.badge-cartao {
+  display: inline-block;
+  white-space: nowrap;
+}
  
 /* BOOTSTRAP OVERRIDES */
  

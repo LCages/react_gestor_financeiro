@@ -995,46 +995,68 @@ function App() {
                 <thead>
                   <tr>
                     {modoSelecao && <th />}
-                    <th>Data</th><th>Descrição</th><th>Categoria</th><th>Valor</th><th>Status</th>
+                    <th>Data</th><th>Descrição</th><th>Categoria</th><th>Valor</th>
+                    <th className="th-status">Status</th>
+                    {cartaoAtivo === "todos" && <th className="th-cartao">Cartão</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {dadosPagina.length === 0 ? (
                     <tr>
-                      <td colSpan={modoSelecao ? 6 : 5} style={{ textAlign: "center", padding: "20px" }}>
+                      <td
+                        colSpan={(modoSelecao ? 6 : 5) + (cartaoAtivo === "todos" ? 1 : 0)}
+                        style={{ textAlign: "center", padding: "20px" }}
+                      >
                         Nenhuma informação encontrada...
                       </td>
                     </tr>
                   ) : (
-                    dadosPagina.map((item) => (
-                      <tr key={item.id} className={selecionados.includes(item.id) ? "selecionado" : ""}>
-                        {modoSelecao && (
-                          <td>
-                            <input
-                              type="checkbox"
-                              checked={selecionados.includes(item.id)}
-                              onChange={(e) =>
-                                setSelecionados((prev) =>
-                                  e.target.checked ? [...prev, item.id] : prev.filter((id) => id !== item.id)
-                                )
-                              }
-                            />
+                    dadosPagina.map((item) => {
+                      const cartaoItem = cartoes.find((c) => c.id === item.cartoesId);
+                      const corCartao  = cartaoItem?.cor;
+
+                      return (
+                        <tr key={item.id} className={selecionados.includes(item.id) ? "selecionado" : ""}>
+                          {modoSelecao && (
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={selecionados.includes(item.id)}
+                                onChange={(e) =>
+                                  setSelecionados((prev) =>
+                                    e.target.checked ? [...prev, item.id] : prev.filter((id) => id !== item.id)
+                                  )
+                                }
+                              />
+                            </td>
+                          )}
+                          <td>{formatarData(item.data)}</td>
+                          <td>{item.descricao}</td>
+                          <td>{item.categoria}</td>
+                          <td>{formatarMoeda(Number(item.valorConvertido), moedaGlobal)}</td>
+                          <td className="td-status">
+                            <span className="badge" style={{
+                              background: item.status === "receita" ? "rgba(76,175,80,0.18)" : "rgba(244,67,54,0.18)",
+                              color:      item.status === "receita" ? "var(--color-receita)" : "var(--color-despesa)",
+                            }}>
+                              {item.status === "receita" ? "Receita" : "Despesa"}
+                            </span>
                           </td>
-                        )}
-                        <td>{formatarData(item.data)}</td>
-                        <td>{item.descricao}</td>
-                        <td>{item.categoria}</td>
-                        <td>{formatarMoeda(Number(item.valorConvertido), moedaGlobal)}</td>
-                        <td>
-                          <span className="badge" style={{
-                            background: item.status === "receita" ? "rgba(76,175,80,0.18)" : "rgba(244,67,54,0.18)",
-                            color:      item.status === "receita" ? "var(--color-receita)" : "var(--color-despesa)",
-                          }}>
-                            {item.status === "receita" ? "Receita" : "Despesa"}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
+                          {cartaoAtivo === "todos" && (
+                            <td className="td-cartao">
+                              {cartaoItem && (
+                                <span className="badge badge-cartao" style={{
+                                  background: corCartao ? `${corCartao}22` : "rgba(255,255,255,0.08)",
+                                  color:      corCartao || "var(--color-muted)",
+                                }}>
+                                  {cartaoItem.nome}
+                                </span>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
