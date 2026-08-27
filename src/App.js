@@ -440,9 +440,9 @@ function App() {
   const saldoTotal = dadosConvertidos.reduce((acc, i) => {
 
     // ignora adiantamentos
-    if (i.categoria === "Adiantamento") {
-      return acc;
-    }
+    //if (i.categoria === "Adiantamento") {
+    //  return acc;
+    //}
 
     if (i.status === "receita") {
       return acc + Number(i.valorConvertido);
