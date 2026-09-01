@@ -28,6 +28,12 @@ function formatarMoeda(valor, moeda) {
   }).format(valor || 0);
 }
 
+function mascararValor(valorFormatado) {
+  // Substitui apenas os dígitos por asteriscos, preservando símbolo da
+  // moeda, separador de milhar e decimal (ex: "R$ 10.500,00" -> "R$ **.***,**")
+  return valorFormatado.replace(/\d/g, "*");
+}
+
 function formatarData(dataISO) {
   if (!dataISO) return "";
   const [ano, mes, dia] = dataISO.split("T")[0].split("-");
@@ -188,6 +194,7 @@ function App() {
   const [loadingInicial, setLoadingInicial] = useState(true);
   const [usuario, setUsuario]               = useState(null);
   const [dados, setDados]                   = useState([]);
+  const [saldoVisivel, setSaldoVisivel]     = useState(true);
   const [cartoes, setCartoes]               = useState([]);
   const [cartaoAtivo, setCartaoAtivo]       = useState(null);
   const [taxas, setTaxas]                   = useState({});
@@ -771,8 +778,33 @@ function App() {
             <div className="left">
 
               <div className="box saldo">
-                <strong>Saldo</strong>
-                <span>{formatarMoeda(saldoTotal, moedaGlobal)}</span>
+                <div className="saldo-header">
+                  <strong>Saldo</strong>
+                  <button
+                    type="button"
+                    className="btn-toggle-saldo"
+                    onClick={() => setSaldoVisivel((v) => !v)}
+                    title={saldoVisivel ? "Ocultar saldo" : "Mostrar saldo"}
+                    aria-label={saldoVisivel ? "Ocultar saldo" : "Mostrar saldo"}
+                  >
+                    {saldoVisivel ? (
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7Z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a20.3 20.3 0 0 1 4.22-5.35M9.9 4.24A10.4 10.4 0 0 1 12 4c7 0 11 7 11 7a20.4 20.4 0 0 1-3.11 4.36M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+                <span>
+                  {saldoVisivel
+                    ? formatarMoeda(saldoTotal, moedaGlobal)
+                    : mascararValor(formatarMoeda(saldoTotal, moedaGlobal))}
+                </span>
               </div>
 
               <div className="box-adiantamento">
